@@ -28,9 +28,9 @@ Work through phases in order. Each item should land as one feature branch, incre
 - [x] Real connectivity detection (health-check ping, not just `navigator.onLine`)
 
 ## Phase 5 — Sync
-- [ ] Sync API: batch upsert endpoint, last-write-wins conflict resolution
-- [ ] Angular Sync Manager: detects reconnect, pushes queued records, clears pending flags
-- [ ] Visible sync-status UI (syncing / synced / offline)
+- [x] Sync API: batch upsert endpoint, last-write-wins conflict resolution
+- [x] Angular Sync Manager: detects reconnect, pushes queued records, clears pending flags
+- [x] Visible sync-status UI (syncing / synced / offline)
 
 ## Phase 6 — Hardening
 - [ ] Full offline → online → offline cycle tested end to end
