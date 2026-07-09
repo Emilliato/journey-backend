@@ -1,8 +1,11 @@
 using System.Text;
+using LearnBridge.Api.AI.Claude;
 using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Auth;
 using LearnBridge.Api.Authorization;
+using LearnBridge.Api.Consent;
 using LearnBridge.Api.Endpoints;
+using LearnBridge.Api.Features.Journey;
 using LearnBridge.Data;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -68,6 +71,26 @@ builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataDirectHandler>()
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<ClaudeOptions>(builder.Configuration.GetSection("Claude"));
+builder.Services.AddScoped<ConsentGate>();
+builder.Services.AddScoped<JourneyToolExecutor>();
+builder.Services.AddScoped<JourneyConversationService>();
+builder.Services.AddSingleton<IJourneySessionStore, InMemoryJourneySessionStore>();
+
+// FakeClaudeClient until a real key is configured — see ClaudeOptions and
+// CLAUDE.md constraint 3. Lets the whole proxy (sessions, tool execution,
+// consent gating, audit logging, the Angular chat UI) be built and tested
+// end-to-end without a live Anthropic key.
+if (string.IsNullOrWhiteSpace(builder.Configuration["Claude:ApiKey"]))
+{
+    builder.Services.AddSingleton<IClaudeClient, FakeClaudeClient>();
+}
+else
+{
+    builder.Services.AddHttpClient<IClaudeClient, AnthropicClaudeClient>();
+}
+
 const string AngularClientCorsPolicy = "AngularClient";
 string[] allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 
@@ -111,6 +134,8 @@ app.UseAuditLogging();
 
 app.MapAuthEndpoints();
 app.MapLearnerEndpoints();
+app.MapJourneyEndpoints();
+app.MapGoalEndpoints();
 
 app.MapGet("/api/health", () => Results.Ok(new
 {
