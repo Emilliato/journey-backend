@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+    <!-- Microsoft.AspNetCore.OpenApi 10.0.9 pulls in Microsoft.OpenApi 2.0.0,
+         which has a known high-severity DoS (GHSA-v5pm-xwqc-g5wc, stack
+         overflow on a circular schema reference). Pinned directly to the
+         patched 2.x release until the parent package updates its own
+         floor. -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LearnBridge.Data\LearnBridge.Data.csproj" />
+  </ItemGroup>
+
+</Project>
