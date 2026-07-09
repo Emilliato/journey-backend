@@ -2,6 +2,7 @@ using System.Text;
 using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Auth;
 using LearnBridge.Api.Authorization;
+using LearnBridge.Api.Endpoints;
 using LearnBridge.Data;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -65,6 +66,8 @@ builder.Services.AddScoped<IAuthorizationHandler, ParentOwnsLearnerDirectHandler
 builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataDirectHandler>();
 
+builder.Services.AddScoped<ITokenService, TokenService>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -90,6 +93,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseAuditLogging();
+
+app.MapAuthEndpoints();
+app.MapLearnerEndpoints();
 
 app.MapGet("/api/health", () => Results.Ok(new
 {
