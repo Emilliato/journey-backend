@@ -6,6 +6,7 @@ using LearnBridge.Api.Authorization;
 using LearnBridge.Api.Consent;
 using LearnBridge.Api.Endpoints;
 using LearnBridge.Api.Features.Journey;
+using LearnBridge.Api.Features.Sync;
 using LearnBridge.Data;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -77,6 +78,7 @@ builder.Services.AddScoped<ConsentGate>();
 builder.Services.AddScoped<JourneyToolExecutor>();
 builder.Services.AddScoped<JourneyConversationService>();
 builder.Services.AddSingleton<IJourneySessionStore, InMemoryJourneySessionStore>();
+builder.Services.AddScoped<SyncService>();
 
 // FakeClaudeClient until a real key is configured — see ClaudeOptions and
 // CLAUDE.md constraint 3. Lets the whole proxy (sessions, tool execution,
@@ -136,6 +138,7 @@ app.MapAuthEndpoints();
 app.MapLearnerEndpoints();
 app.MapJourneyEndpoints();
 app.MapGoalEndpoints();
+app.MapSyncEndpoints();
 
 app.MapGet("/api/health", () => Results.Ok(new
 {

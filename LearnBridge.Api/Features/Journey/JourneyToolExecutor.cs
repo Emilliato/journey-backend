@@ -65,7 +65,7 @@ public sealed class JourneyToolExecutor
         string? categoryRaw = input?["category"]?.GetValue<string>();
         string? content = input?["content"]?.GetValue<string>();
 
-        if (string.IsNullOrWhiteSpace(content) || !TryParseCategory(categoryRaw, out JourneyMemoryCategory category))
+        if (string.IsNullOrWhiteSpace(content) || !ClosedEnumParsing.TryParseJourneyMemoryCategory(categoryRaw, out JourneyMemoryCategory category))
         {
             return new ToolExecutionResult
             {
@@ -96,7 +96,7 @@ public sealed class JourneyToolExecutor
         string? statusRaw = input?["status"]?.GetValue<string>();
         string? description = input?["description"]?.GetValue<string>();
 
-        if (string.IsNullOrWhiteSpace(title) || !TryParseStatus(statusRaw, out GoalStatus status))
+        if (string.IsNullOrWhiteSpace(title) || !ClosedEnumParsing.TryParseGoalStatus(statusRaw, out GoalStatus status))
         {
             return new ToolExecutionResult
             {
@@ -136,36 +136,4 @@ public sealed class JourneyToolExecutor
         };
     }
 
-    private static bool TryParseCategory(string? raw, out JourneyMemoryCategory category)
-    {
-        category = default;
-
-        return raw switch
-        {
-            "academic" => Assign(out category, JourneyMemoryCategory.Academic),
-            "preference" => Assign(out category, JourneyMemoryCategory.Preference),
-            "engagement" => Assign(out category, JourneyMemoryCategory.Engagement),
-            "goal_related" => Assign(out category, JourneyMemoryCategory.GoalRelated),
-            _ => false,
-        };
-    }
-
-    private static bool TryParseStatus(string? raw, out GoalStatus status)
-    {
-        status = default;
-
-        return raw switch
-        {
-            "active" => Assign(out status, GoalStatus.Active),
-            "completed" => Assign(out status, GoalStatus.Completed),
-            "abandoned" => Assign(out status, GoalStatus.Abandoned),
-            _ => false,
-        };
-    }
-
-    private static bool Assign<T>(out T target, T value)
-    {
-        target = value;
-        return true;
-    }
 }
