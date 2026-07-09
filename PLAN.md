@@ -10,9 +10,9 @@ Work through phases in order. Each item should land as one feature branch, incre
 - [x] Audit logging middleware writing to `access_audit_log` on every learner-linked read/write
 
 ## Phase 2 — Auth + child profile (online-only)
-- [ ] Angular signup / login flow against Identity API
-- [ ] Child profile creation flow, blocked without connectivity (no offline fallback by design)
-- [ ] Parental consent capture as part of profile creation, gating all later writes
+- [ ] Angular signup / login flow against Identity API (backend done: POST /api/auth/register, /api/auth/login)
+- [ ] Child profile creation flow, blocked without connectivity (no offline fallback by design) (backend done: POST /api/learners)
+- [ ] Parental consent capture as part of profile creation, gating all later writes (backend done: consent row created atomically with the learner)
 
 ## Phase 3 — Online JOURNEY interaction
 - [ ] Claude Proxy endpoint (.NET) — key isolated server-side
