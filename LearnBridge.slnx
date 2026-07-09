@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="LearnBridge.Api/LearnBridge.Api.csproj" />
+  <Project Path="LearnBridge.Data/LearnBridge.Data.csproj" />
+  <Project Path="LearnBridge.Tests/LearnBridge.Tests.csproj" />
+</Solution>

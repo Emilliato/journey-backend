@@ -1,0 +1,26 @@
+# Build output
+bin/
+obj/
+
+# VS/Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# Test results
+TestResults/
+
+# Secrets — real values live only in .NET User Secrets locally / CI secrets in prod
+appsettings.*.Local.json
+appsettings.Production.json
+*.pfx
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Angular (added ahead of Phase 2, so the ignore rules exist before the app does)
+node_modules/
+dist/
+.angular/
