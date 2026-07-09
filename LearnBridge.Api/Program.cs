@@ -2,6 +2,7 @@ using System.Text;
 using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Auth;
 using LearnBridge.Api.Authorization;
+using LearnBridge.Api.Endpoints;
 using LearnBridge.Data;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -65,6 +66,21 @@ builder.Services.AddScoped<IAuthorizationHandler, ParentOwnsLearnerDirectHandler
 builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataDirectHandler>();
 
+builder.Services.AddScoped<ITokenService, TokenService>();
+
+const string AngularClientCorsPolicy = "AngularClient";
+string[] allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(AngularClientCorsPolicy, policy =>
+    {
+        // Bearer tokens live in a header, not a cookie, so no
+        // AllowCredentials() is needed — just an explicit origin allowlist.
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -85,11 +101,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors(AngularClientCorsPolicy);
+
 app.UseAuthentication();
 
 app.UseAuthorization();
 
 app.UseAuditLogging();
+
+app.MapAuthEndpoints();
+app.MapLearnerEndpoints();
 
 app.MapGet("/api/health", () => Results.Ok(new
 {
