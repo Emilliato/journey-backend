@@ -21,11 +21,11 @@ Work through phases in order. Each item should land as one feature branch, incre
 - [x] `journey_memory` writes from conversation, respecting the closed category enum
 
 ## Phase 4 — Offline capability
-- [ ] `@angular/pwa` setup, service worker caching app shell
-- [ ] Dexie.js schema mirroring the backend entities relevant to offline use
-- [ ] WebLLM integration (`navigator.gpu` feature-detect, fallback to cached-content-only mode if unsupported)
-- [ ] Separate, shorter offline system prompt for the local model (see `docs/ARCHITECTURE.md`)
-- [ ] Real connectivity detection (health-check ping, not just `navigator.onLine`)
+- [x] `@angular/pwa` setup, service worker caching app shell
+- [x] Dexie.js schema mirroring the backend entities relevant to offline use
+- [x] WebLLM integration (`navigator.gpu` feature-detect, fallback to cached-content-only mode if unsupported)
+- [x] Separate, shorter offline system prompt for the local model (see `docs/ARCHITECTURE.md`)
+- [x] Real connectivity detection (health-check ping, not just `navigator.onLine`)
 
 ## Phase 5 — Sync
 - [ ] Sync API: batch upsert endpoint, last-write-wins conflict resolution
