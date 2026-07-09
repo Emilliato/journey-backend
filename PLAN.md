@@ -15,10 +15,10 @@ Work through phases in order. Each item should land as one feature branch, incre
 - [x] Parental consent capture as part of profile creation, gating all later writes
 
 ## Phase 3 — Online JOURNEY interaction
-- [ ] Claude Proxy endpoint (.NET) — key isolated server-side
-- [ ] Angular chat UI wired to the proxy
-- [ ] Goal panel, updated live from JOURNEY tool calls
-- [ ] `journey_memory` writes from conversation, respecting the closed category enum
+- [x] Claude Proxy endpoint (.NET) — key isolated server-side
+- [x] Angular chat UI wired to the proxy
+- [x] Goal panel, updated live from JOURNEY tool calls
+- [x] `journey_memory` writes from conversation, respecting the closed category enum
 
 ## Phase 4 — Offline capability
 - [ ] `@angular/pwa` setup, service worker caching app shell
