@@ -68,6 +68,19 @@ builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataDirectHandler>()
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 
+const string AngularClientCorsPolicy = "AngularClient";
+string[] allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(AngularClientCorsPolicy, policy =>
+    {
+        // Bearer tokens live in a header, not a cookie, so no
+        // AllowCredentials() is needed — just an explicit origin allowlist.
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -87,6 +100,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(AngularClientCorsPolicy);
 
 app.UseAuthentication();
 
