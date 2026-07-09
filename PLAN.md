@@ -3,7 +3,7 @@
 Work through phases in order. Each item should land as one feature branch, incrementally committed, checked off here as part of the final commit for that item. Don't start a phase before the previous one is merged.
 
 ## Phase 1 — Backend skeleton
-- [ ] ASP.NET Core solution structure (`LearnBridge.Api`, `LearnBridge.Data`, `LearnBridge.Tests`)
+- [x] ASP.NET Core solution structure (`LearnBridge.Api`, `LearnBridge.Data`, `LearnBridge.Tests`)
 - [ ] EF Core entities + migration for: `learners`, `parents`, `parental_consent`, `learning_profile`, `goals`, `journey_memory`, `conversation_sessions`, `access_audit_log`
 - [ ] ASP.NET Core Identity wired up (parent accounts)
 - [ ] Authorization policies: learner reads/writes own rows, parent reads/writes their children's rows, default-deny otherwise
