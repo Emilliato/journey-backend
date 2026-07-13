@@ -9,6 +9,13 @@ public sealed class JourneySessionState
 
     public required Guid ParentId { get; init; }
 
+    /// <summary>
+    /// Built once at session start from the learner's journey_memory rows —
+    /// see <see cref="JourneyPersona.BuildSystemPrompt"/>. Memories recorded
+    /// mid-session don't need to be re-injected; they're already in History.
+    /// </summary>
+    public required string SystemPrompt { get; init; }
+
     public List<ClaudeMessage> History { get; } = [];
 }
 
@@ -21,7 +28,7 @@ public sealed class JourneySessionState
 /// </summary>
 public interface IJourneySessionStore
 {
-    JourneySessionState Create(Guid sessionId, Guid learnerId, Guid parentId);
+    JourneySessionState Create(Guid sessionId, Guid learnerId, Guid parentId, string systemPrompt);
 
     JourneySessionState? Get(Guid sessionId);
 
@@ -32,9 +39,9 @@ public sealed class InMemoryJourneySessionStore : IJourneySessionStore
 {
     private readonly ConcurrentDictionary<Guid, JourneySessionState> _sessions = new();
 
-    public JourneySessionState Create(Guid sessionId, Guid learnerId, Guid parentId)
+    public JourneySessionState Create(Guid sessionId, Guid learnerId, Guid parentId, string systemPrompt)
     {
-        JourneySessionState state = new() { LearnerId = learnerId, ParentId = parentId };
+        JourneySessionState state = new() { LearnerId = learnerId, ParentId = parentId, SystemPrompt = systemPrompt };
         _sessions[sessionId] = state;
         return state;
     }

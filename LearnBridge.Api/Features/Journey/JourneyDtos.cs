@@ -2,7 +2,7 @@ namespace LearnBridge.Api.Features.Journey;
 
 public sealed record StartSessionRequest(Guid LearnerId);
 
-public sealed record StartSessionResponse(Guid SessionId, DateTime StartedAt);
+public sealed record StartSessionResponse(Guid SessionId, DateTime StartedAt, string Greeting);
 
 public sealed record SendMessageRequest(string Message);
 

@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 
 namespace LearnBridge.Api.AI.Claude;
@@ -11,6 +13,14 @@ namespace LearnBridge.Api.AI.Claude;
 public sealed class AnthropicClaudeClient : IClaudeClient
 {
     private const string AnthropicVersion = "2023-06-01";
+
+    // The Messages API rejects null-valued fields ("tools: Input should be a
+    // valid array", extra nulls on content blocks), so nulls must be omitted
+    // from the wire JSON entirely.
+    private static readonly JsonSerializerOptions WireJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
 
     private readonly HttpClient _httpClient;
     private readonly ClaudeOptions _options;
@@ -42,8 +52,13 @@ public sealed class AnthropicClaudeClient : IClaudeClient
             Tools = tools.Count == 0 ? null : tools.Select(ToWireTool).ToList(),
         };
 
-        HttpResponseMessage response = await _httpClient.PostAsJsonAsync("v1/messages", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        HttpResponseMessage response = await _httpClient.PostAsJsonAsync("v1/messages", request, WireJsonOptions, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(
+                $"Anthropic Messages API returned {(int)response.StatusCode}: {errorBody}");
+        }
 
         AnthropicMessageResponse? wireResponse = await response.Content
             .ReadFromJsonAsync<AnthropicMessageResponse>(cancellationToken);

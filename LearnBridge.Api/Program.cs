@@ -101,8 +101,22 @@ builder.Services.AddCors(options =>
     options.AddPolicy(AngularClientCorsPolicy, policy =>
     {
         // Bearer tokens live in a header, not a cookie, so no
-        // AllowCredentials() is needed — just an explicit origin allowlist.
-        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        // AllowCredentials() is needed — just an origin allowlist.
+        if (builder.Environment.IsDevelopment())
+        {
+            // Dev on the LAN: the Angular app is served from a dynamic host
+            // IP (e.g. http://192.168.1.50:4200), so there's no fixed origin
+            // to list — allow any. Safe here because auth is a Bearer header,
+            // not a cookie (so no AllowCredentials, no CSRF surface). This
+            // supersedes the illustrative Cors:AllowedOrigins in
+            // appsettings.Development.json, which only applies outside dev.
+            // Production requires an explicit Cors:AllowedOrigins list.
+            policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod();
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        }
     });
 });
 
@@ -138,6 +152,7 @@ app.MapAuthEndpoints();
 app.MapLearnerEndpoints();
 app.MapJourneyEndpoints();
 app.MapGoalEndpoints();
+app.MapMemoryEndpoints();
 app.MapSyncEndpoints();
 
 app.MapGet("/api/health", () => Results.Ok(new

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using LearnBridge.Api.Features.Journey;
 
 namespace LearnBridge.Api.AI.Claude;
 
@@ -38,6 +39,13 @@ public sealed class FakeClaudeClient : IClaudeClient
             .Where(b => b.Type == ClaudeContentBlockTypes.Text)
             .Select(b => b.Text ?? string.Empty)
             .LastOrDefault() ?? string.Empty;
+
+        if (latestUserText.StartsWith(JourneyPersona.SessionStartMarker, StringComparison.Ordinal))
+        {
+            return Task.FromResult(EndTurn(
+                "Hi, I'm JOURNEY! Before we get started, I'd love to get to know you a little. " +
+                "What grade are you in this year?"));
+        }
 
         if (latestUserText.Contains("goal", StringComparison.OrdinalIgnoreCase))
         {
