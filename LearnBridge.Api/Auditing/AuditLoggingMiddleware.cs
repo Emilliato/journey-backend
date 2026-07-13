@@ -26,9 +26,10 @@ public sealed class AuditLoggingMiddleware
     {
         await _next(context);
 
-        IReadOnlyList<(Guid LearnerId, string Resource)> markedAccesses = context.GetMarkedAccesses();
+        Guid? learnerId = context.GetAuditLearnerId();
+        string? resource = context.GetAuditResource();
 
-        if (markedAccesses.Count == 0)
+        if (learnerId is null || string.IsNullOrWhiteSpace(resource))
         {
             return;
         }
@@ -49,15 +50,15 @@ public sealed class AuditLoggingMiddleware
 
         foreach ((Guid learnerId, string resource) in markedAccesses)
         {
-            dbContext.AccessAuditLogs.Add(new AccessAuditLog
-            {
-                LearnerId = learnerId,
-                ActorId = actorId,
-                Action = action,
-                Resource = resource,
-                RequestPath = context.Request.Path,
-                ResponseStatusCode = context.Response.StatusCode,
-            });
+        dbContext.AccessAuditLogs.Add(new AccessAuditLog
+        {
+            LearnerId = learnerId.Value,
+            ActorId = actorId,
+            Action = action,
+            Resource = resource,
+            RequestPath = context.Request.Path,
+            ResponseStatusCode = context.Response.StatusCode,
+        });
         }
 
         await dbContext.SaveChangesAsync();
