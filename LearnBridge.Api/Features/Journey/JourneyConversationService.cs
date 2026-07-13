@@ -23,33 +23,59 @@ public sealed class JourneyConversationService
         _toolExecutor = toolExecutor;
     }
 
-    public async Task<SendMessageResponse> SendMessageAsync(
+    public Task<SendMessageResponse> SendMessageAsync(
         JourneySessionState session,
         Guid conversationSessionId,
         string userMessage,
         CancellationToken cancellationToken)
     {
         session.History.Add(ClaudeMessage.UserText(userMessage));
+        return RunTurnLoopAsync(session, conversationSessionId, cancellationToken);
+    }
 
+    /// <summary>
+    /// Opens a fresh session with JOURNEY speaking first — a hidden
+    /// bootstrap user turn (the Messages API requires the first message to
+    /// be a user turn) prompts the greeting/introduction described in the
+    /// system prompt. The frontend never renders the bootstrap message.
+    /// </summary>
+    public Task<SendMessageResponse> StartConversationAsync(
+        JourneySessionState session,
+        Guid conversationSessionId,
+        CancellationToken cancellationToken)
+    {
+        session.History.Add(ClaudeMessage.UserText(JourneyPersona.SessionStartMessage));
+        return RunTurnLoopAsync(session, conversationSessionId, cancellationToken);
+    }
+
+    private async Task<SendMessageResponse> RunTurnLoopAsync(
+        JourneySessionState session,
+        Guid conversationSessionId,
+        CancellationToken cancellationToken)
+    {
         List<GoalUpdateDto> goalUpdates = [];
         int memoriesRecorded = 0;
+
+        // The model often puts its user-facing text in the same turn as a
+        // tool call ("Nice, grade 6! *records memory*") and has little or
+        // nothing to add once the tool result comes back — so the reply is
+        // the text of EVERY assistant turn in the loop, not just the last.
+        List<string> replyParts = [];
 
         for (int roundTrip = 0; roundTrip < MaxToolRoundTrips; roundTrip++)
         {
             ClaudeTurnResult turn = await _claudeClient.SendAsync(
-                JourneyPersona.SystemPrompt, session.History, JourneyTools.All, cancellationToken);
+                session.SystemPrompt, session.History, JourneyTools.All, cancellationToken);
 
             session.History.Add(turn.AssistantMessage);
 
+            replyParts.AddRange(turn.AssistantMessage.Content
+                .Where(b => b.Type == ClaudeContentBlockTypes.Text && !string.IsNullOrWhiteSpace(b.Text))
+                .Select(b => b.Text!));
+
             if (turn.StopReason != "tool_use")
             {
-                string replyText = string.Join(
-                    " ",
-                    turn.AssistantMessage.Content
-                        .Where(b => b.Type == ClaudeContentBlockTypes.Text)
-                        .Select(b => b.Text));
-
-                return new SendMessageResponse(replyText, goalUpdates, memoriesRecorded);
+                return new SendMessageResponse(string.Join("\n\n", replyParts), goalUpdates, memoriesRecorded);
             }
 
             List<ClaudeContentBlock> toolResults = [];
@@ -77,7 +103,9 @@ public sealed class JourneyConversationService
         }
 
         return new SendMessageResponse(
-            "Sorry, I got a bit tangled up there — could you try rephrasing that?",
+            replyParts.Count > 0
+                ? string.Join("\n\n", replyParts)
+                : "Sorry, I got a bit tangled up there — could you try rephrasing that?",
             goalUpdates,
             memoriesRecorded);
     }

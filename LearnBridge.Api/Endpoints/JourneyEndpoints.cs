@@ -31,7 +31,9 @@ public static class JourneyEndpoints
         LearnBridgeDbContext dbContext,
         ConsentGate consentGate,
         IJourneySessionStore sessionStore,
-        IAuthorizationService authorizationService)
+        IAuthorizationService authorizationService,
+        JourneyConversationService conversationService,
+        CancellationToken cancellationToken)
     {
         Guid? parentId = httpContext.User.GetParentId();
 
@@ -65,15 +67,32 @@ public static class JourneyEndpoints
 
         ConversationSession session = new() { LearnerId = learner.Id, WasOffline = false };
         dbContext.ConversationSessions.Add(session);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken);
 
-        sessionStore.Create(session.Id, learner.Id, parentId.Value);
+        // The learner's memory repository, replayed into the system prompt so
+        // JOURNEY knows them (and runs the introduction when there's nothing
+        // yet). Newest-first cap, then chronological for the prompt.
+        List<JourneyMemory> memories = await dbContext.JourneyMemories
+            .Where(m => m.LearnerId == learner.Id)
+            .OrderByDescending(m => m.CreatedAt)
+            .Take(JourneyPersona.MaxMemoriesInPrompt)
+            .ToListAsync(cancellationToken);
+        memories.Reverse();
+
+        string systemPrompt = JourneyPersona.BuildSystemPrompt(learner.DisplayName, memories);
+        JourneySessionState state = sessionStore.Create(session.Id, learner.Id, parentId.Value, systemPrompt);
+
+        // JOURNEY speaks first — greeting for a known learner, the
+        // getting-to-know-you introduction for a new one.
+        SendMessageResponse opening = await conversationService.StartConversationAsync(
+            state, session.Id, cancellationToken);
 
         httpContext.MarkLearnerAccess(learner.Id, "conversation_sessions");
+        httpContext.MarkLearnerAccess(learner.Id, "journey_memory");
 
         return Results.Created(
             $"/api/journey/sessions/{session.Id}",
-            new StartSessionResponse(session.Id, session.StartedAt));
+            new StartSessionResponse(session.Id, session.StartedAt, opening.Reply));
     }
 
     private static async Task<IResult> SendMessageAsync(

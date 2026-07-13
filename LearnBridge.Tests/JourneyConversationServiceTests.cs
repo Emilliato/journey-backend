@@ -34,7 +34,12 @@ public class JourneyConversationServiceTests
         JourneyToolExecutor toolExecutor = new(dbContext, new ConsentGate(dbContext), accessor);
         JourneyConversationService service = new(new FakeClaudeClient(), toolExecutor);
 
-        JourneySessionState session = new() { LearnerId = learner.Id, ParentId = learner.ParentId };
+        JourneySessionState session = new()
+        {
+            LearnerId = learner.Id,
+            ParentId = learner.ParentId,
+            SystemPrompt = JourneyPersona.BuildSystemPrompt(learner.DisplayName, []),
+        };
 
         SendMessageResponse response = await service.SendMessageAsync(
             session, Guid.NewGuid(), "I want to set a goal to finish my science project", CancellationToken.None);
@@ -62,7 +67,12 @@ public class JourneyConversationServiceTests
         JourneyToolExecutor toolExecutor = new(dbContext, new ConsentGate(dbContext), accessor);
         JourneyConversationService service = new(new FakeClaudeClient(), toolExecutor);
 
-        JourneySessionState session = new() { LearnerId = learner.Id, ParentId = learner.ParentId };
+        JourneySessionState session = new()
+        {
+            LearnerId = learner.Id,
+            ParentId = learner.ParentId,
+            SystemPrompt = JourneyPersona.BuildSystemPrompt(learner.DisplayName, []),
+        };
 
         SendMessageResponse response = await service.SendMessageAsync(
             session, Guid.NewGuid(), "Just saying hello", CancellationToken.None);
@@ -72,6 +82,68 @@ public class JourneyConversationServiceTests
         Assert.False(string.IsNullOrWhiteSpace(response.Reply));
         Assert.Empty(dbContext.Goals);
         Assert.Empty(dbContext.JourneyMemories);
+    }
+
+    [Fact]
+    public async Task StartConversationAsync_ProducesAnOpeningReply_FromAHiddenBootstrapTurn()
+    {
+        await using LearnBridgeDbContext dbContext = CreateDbContext();
+
+        Learner learner = new() { ParentId = Guid.NewGuid(), DisplayName = "Test Learner" };
+        dbContext.Learners.Add(learner);
+        dbContext.ParentalConsents.Add(new ParentalConsent { LearnerId = learner.Id, ParentId = learner.ParentId });
+        await dbContext.SaveChangesAsync();
+
+        IHttpContextAccessor accessor = new FakeAccessor(new DefaultHttpContext());
+        JourneyToolExecutor toolExecutor = new(dbContext, new ConsentGate(dbContext), accessor);
+        JourneyConversationService service = new(new FakeClaudeClient(), toolExecutor);
+
+        JourneySessionState session = new()
+        {
+            LearnerId = learner.Id,
+            ParentId = learner.ParentId,
+            SystemPrompt = JourneyPersona.BuildSystemPrompt(learner.DisplayName, []),
+        };
+
+        SendMessageResponse response = await service.StartConversationAsync(
+            session, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(string.IsNullOrWhiteSpace(response.Reply));
+        // The greeting itself must not leak the bootstrap marker to the UI.
+        Assert.DoesNotContain(JourneyPersona.SessionStartMarker, response.Reply);
+        // History: hidden bootstrap user turn + assistant greeting.
+        Assert.Equal(2, session.History.Count);
+        Assert.StartsWith(JourneyPersona.SessionStartMarker, session.History[0].Content[0].Text);
+    }
+}
+
+public class JourneyPersonaTests
+{
+    [Fact]
+    public void BuildSystemPrompt_WithNoMemories_RunsTheIntroductionFlow()
+    {
+        string prompt = JourneyPersona.BuildSystemPrompt("Emma", []);
+
+        Assert.Contains("Getting to know Emma", prompt);
+        Assert.Contains("ONE AT A TIME", prompt);
+        Assert.Contains("record_memory", prompt);
+    }
+
+    [Fact]
+    public void BuildSystemPrompt_WithMemories_InjectsThemAndSkipsTheIntroduction()
+    {
+        List<JourneyMemory> memories =
+        [
+            new() { Category = JourneyMemoryCategory.Academic, Content = "Is in grade 6." },
+            new() { Category = JourneyMemoryCategory.GoalRelated, Content = "Wants to master fractions." },
+        ];
+
+        string prompt = JourneyPersona.BuildSystemPrompt("Emma", memories);
+
+        Assert.Contains("What you already know about Emma", prompt);
+        Assert.Contains("(academic) Is in grade 6.", prompt);
+        Assert.Contains("(goal-related) Wants to master fractions.", prompt);
+        Assert.DoesNotContain("Getting to know Emma", prompt);
     }
 }
 
