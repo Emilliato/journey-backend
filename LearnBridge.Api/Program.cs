@@ -125,17 +125,17 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+}
 
-    // No migration/deployment pipeline yet — self-create the schema against
-    // the configured SQL Server on dev startup for convenience, same as the
-    // EchoMate backend's pattern.
-    using (IServiceScope migrationScope = app.Services.CreateScope())
-    {
-        LearnBridgeDbContext dbContext = migrationScope.ServiceProvider
-            .GetRequiredService<LearnBridgeDbContext>();
+// Apply migrations on startup in every environment: the deploy pipeline has no
+// network path to the production SQL Server, so schema changes ship with the
+// app and apply on first boot after a deploy (idempotent — no-op when current).
+using (IServiceScope migrationScope = app.Services.CreateScope())
+{
+    LearnBridgeDbContext dbContext = migrationScope.ServiceProvider
+        .GetRequiredService<LearnBridgeDbContext>();
 
-        dbContext.Database.Migrate();
-    }
+    dbContext.Database.Migrate();
 }
 
 app.UseHttpsRedirection();
