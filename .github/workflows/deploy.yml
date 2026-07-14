@@ -28,6 +28,29 @@ jobs:
     - name: Publish (Self-contained)
       run: dotnet publish ./LearnBridge.Api/LearnBridge.Api.csproj -c Release -r win-x64 --self-contained true -o ./publish
 
+    # appsettings.json ships with empty secrets (see its _comment_secrets note).
+    # Production values come from GitHub repository secrets and are written into
+    # the publish folder here, so they survive the msdeploy sync (which deletes
+    # any server-side file not present in the source). ASPNETCORE_ENVIRONMENT
+    # defaults to Production on the server, so this file is loaded and its
+    # non-empty keys override appsettings.json.
+    - name: Write production settings
+      shell: powershell
+      env:
+        PROD_CONNECTION_STRING: ${{ secrets.PROD_CONNECTION_STRING }}
+        PROD_JWT_SIGNING_KEY: ${{ secrets.PROD_JWT_SIGNING_KEY }}
+        PROD_CLAUDE_API_KEY: ${{ secrets.PROD_CLAUDE_API_KEY }}
+      run: |
+        $settings = [ordered]@{
+          ConnectionStrings = @{ DefaultConnection = $env:PROD_CONNECTION_STRING }
+          Jwt = @{ SigningKey = $env:PROD_JWT_SIGNING_KEY }
+          Claude = @{
+            ApiKey = $env:PROD_CLAUDE_API_KEY
+            Model = "claude-opus-4-8"
+          }
+        } | ConvertTo-Json -Depth 3
+        Set-Content -Path "$env:GITHUB_WORKSPACE\publish\appsettings.Production.json" -Value $settings -Encoding UTF8
+
     - name: Debug publish folder
       shell: powershell
       run: dir $env:GITHUB_WORKSPACE\publish
