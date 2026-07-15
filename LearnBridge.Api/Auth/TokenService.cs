@@ -9,8 +9,12 @@ using Microsoft.IdentityModel.Tokens;
 namespace LearnBridge.Api.Auth;
 
 /// <summary>
-/// Issues JWTs for parent accounts only — see ApplicationUser and CLAUDE.md
-/// constraint 1. There is no learner-facing token issuance path.
+/// Issues JWTs for parent and learner accounts. Parent tokens carry the
+/// account id as the "sub" claim (read by GetParentId / the parent-side
+/// authorization handlers). Learner tokens additionally carry the
+/// learner_id claim, which is what LearnerOwnDataHandler matches against —
+/// a learner token never authorizes as a parent because its "sub" is the
+/// learner's own user id, which matches no Learners.ParentId row.
 /// </summary>
 public sealed class TokenService : ITokenService
 {
@@ -21,7 +25,7 @@ public sealed class TokenService : ITokenService
         _options = options.Value;
     }
 
-    public (string Token, DateTime ExpiresAt) CreateToken(ApplicationUser user)
+    public (string Token, DateTime ExpiresAt) CreateToken(ApplicationUser user, Guid? learnerId = null)
     {
         DateTime expiresAt = DateTime.UtcNow.AddDays(_options.ExpiryDays);
 
@@ -30,7 +34,13 @@ public sealed class TokenService : ITokenService
             new Claim(LearnBridgeClaimTypes.ParentId, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(LearnBridgeClaimTypes.Role, learnerId is null ? LearnBridgeRoles.Parent : LearnBridgeRoles.Learner),
         ];
+
+        if (learnerId is not null)
+        {
+            claims.Add(new Claim(LearnBridgeClaimTypes.LearnerId, learnerId.Value.ToString()));
+        }
 
         SymmetricSecurityKey signingKey = new(Encoding.UTF8.GetBytes(_options.SigningKey));
         SigningCredentials credentials = new(signingKey, SecurityAlgorithms.HmacSha256);

@@ -15,7 +15,7 @@ AI-companion learning platform (JOURNEY) for school-age learners. Works fully on
 
 These are business/compliance decisions, not style preferences. Do not optimise around them.
 
-1. **Auth and child-profile creation require connectivity.** Never build an offline path for signup, login, or creating a learner profile.
+1. **Account creation and first login require connectivity.** (Amended 2026-07-15 by owner decision — the original "never build an offline auth path" rule is retired.) Parents and learners each have credentialed Identity accounts: learner accounts (Learner role, username + password) are created by the parent together with the child profile and linked via `Learner.UserId`. Signup, profile creation, and the *first* login on a device are online-only. After a successful online login, the client may verify credentials locally to unlock the cached session/JWT for offline use, including switching between child profiles offline.
 2. **Consent gates everything.** No row may be written to `learning_profile`, `goals`, or `journey_memory` for a learner without an active (non-revoked) `parental_consent` record. Enforce server-side, not just in the UI.
 3. **The Claude API key lives only in the backend Claude Proxy.** Never in Angular code, never in an environment file that ships to the client, never in the service worker. Use .NET User Secrets locally; never commit secrets to the repo.
 4. **`journey_memory.category` is a closed enum**: `academic`, `preference`, `engagement`, `goal_related`. No freeform categories. No health, emotional-state, or family-relationship fields anywhere in the schema — this is a hard boundary given this is a minor's data, not a later refactor.
