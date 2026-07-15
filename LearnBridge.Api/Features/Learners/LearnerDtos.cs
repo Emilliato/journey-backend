@@ -13,4 +13,19 @@ public sealed record CreateLearnerRequest(
     string Username,
     string Password);
 
-public sealed record LearnerResponse(Guid Id, string DisplayName, DateTime CreatedAt, bool ConsentActive);
+public sealed record LearnerResponse(
+    Guid Id,
+    string DisplayName,
+    DateTime CreatedAt,
+    bool ConsentActive,
+    string? AvatarConfig);
+
+/// <summary>Avatar Studio save — the whole config as one JSON string.</summary>
+public sealed record UpdateAvatarRequest(string AvatarConfig);
+
+/// <summary>
+/// Parent dashboard consent toggle. Active=false revokes (soft delete —
+/// RevokedAt is set, the row stays for the audit trail); Active=true grants
+/// a fresh consent record.
+/// </summary>
+public sealed record SetConsentRequest(bool Active);
