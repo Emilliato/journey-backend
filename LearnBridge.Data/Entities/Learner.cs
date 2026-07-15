@@ -13,6 +13,14 @@ public sealed class Learner
 
     public Guid ParentId { get; set; }
 
+    /// <summary>
+    /// The learner's own Identity account (Learner role), created by the
+    /// parent together with this profile. Nullable for learners created
+    /// before learner accounts existed. See CLAUDE.md constraint 1 (as
+    /// amended 2026-07-15): learners sign in with their own credentials.
+    /// </summary>
+    public Guid? UserId { get; set; }
+
     public string DisplayName { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -4,6 +4,7 @@ using LearnBridge.Api.Features.Learners;
 using LearnBridge.Data;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace LearnBridge.Api.Endpoints;
@@ -28,7 +29,8 @@ public static class LearnerEndpoints
     private static async Task<IResult> CreateLearnerAsync(
         CreateLearnerRequest request,
         HttpContext httpContext,
-        LearnBridgeDbContext dbContext)
+        LearnBridgeDbContext dbContext,
+        UserManager<ApplicationUser> userManager)
     {
         Guid? parentId = httpContext.User.GetParentId();
 
@@ -45,6 +47,14 @@ public static class LearnerEndpoints
             });
         }
 
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["username"] = ["A username and password for the learner are required."],
+            });
+        }
+
         if (!request.ConsentGranted)
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
@@ -53,10 +63,32 @@ public static class LearnerEndpoints
             });
         }
 
+        // The learner's own sign-in (Learner role) — created first because
+        // Identity persists immediately; if the profile save below fails,
+        // the account is deleted again so no orphan sign-in remains.
+        ApplicationUser learnerUser = new()
+        {
+            UserName = request.Username.Trim(),
+            DisplayName = request.DisplayName,
+        };
+
+        IdentityResult identityResult = await userManager.CreateAsync(learnerUser, request.Password);
+
+        if (!identityResult.Succeeded)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["identity"] = identityResult.Errors.Select(e => e.Description).ToArray(),
+            });
+        }
+
+        await userManager.AddToRoleAsync(learnerUser, LearnBridgeRoles.Learner);
+
         Learner learner = new()
         {
             ParentId = parentId.Value,
             DisplayName = request.DisplayName,
+            UserId = learnerUser.Id,
         };
 
         ParentalConsent consent = new()
@@ -68,9 +100,17 @@ public static class LearnerEndpoints
         dbContext.Learners.Add(learner);
         dbContext.ParentalConsents.Add(consent);
 
-        // Single SaveChangesAsync call — the learner and its founding
-        // consent record land in one transaction, or neither does.
-        await dbContext.SaveChangesAsync();
+        try
+        {
+            // Single SaveChangesAsync call — the learner and its founding
+            // consent record land in one transaction, or neither does.
+            await dbContext.SaveChangesAsync();
+        }
+        catch
+        {
+            await userManager.DeleteAsync(learnerUser);
+            throw;
+        }
 
         httpContext.MarkLearnerAccess(learner.Id, "learners");
 

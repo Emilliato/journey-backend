@@ -136,6 +136,20 @@ using (IServiceScope migrationScope = app.Services.CreateScope())
         .GetRequiredService<LearnBridgeDbContext>();
 
     dbContext.Database.Migrate();
+
+    // Seed the two Identity roles (idempotent). Parents get "Parent" at
+    // registration; learner accounts get "Learner" when the parent creates
+    // the child profile — see LearnerEndpoints.
+    RoleManager<IdentityRole<Guid>> roleManager = migrationScope.ServiceProvider
+        .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
+    foreach (string role in new[] { LearnBridgeRoles.Parent, LearnBridgeRoles.Learner })
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole<Guid>(role));
+        }
+    }
 }
 
 app.UseHttpsRedirection();

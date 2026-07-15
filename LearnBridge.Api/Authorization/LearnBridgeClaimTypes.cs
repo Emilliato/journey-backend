@@ -6,11 +6,18 @@ public static class LearnBridgeClaimTypes
     public const string ParentId = "sub";
 
     /// <summary>
-    /// A learner-scoped token's learner id. No token issuance flow exists
-    /// yet — only parent accounts are wired up in Phase 1/2 (see
-    /// CLAUDE.md: "ASP.NET Core Identity wired up (parent accounts)") — but
-    /// the claim name and the handler that reads it are ready for if/when
-    /// a learner-specific auth path is built.
+    /// A learner-scoped token's learner id — issued by TokenService for
+    /// learner-account logins and matched by LearnerOwnDataHandler.
     /// </summary>
     public const string LearnerId = "learner_id";
+
+    /// <summary>Raw role claim ("Parent" or "Learner") — informational for clients.</summary>
+    public const string Role = "role";
+}
+
+/// <summary>Identity role names, seeded at startup (see Program.cs).</summary>
+public static class LearnBridgeRoles
+{
+    public const string Parent = "Parent";
+    public const string Learner = "Learner";
 }
