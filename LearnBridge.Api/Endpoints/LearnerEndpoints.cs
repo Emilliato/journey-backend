@@ -24,6 +24,8 @@ public static class LearnerEndpoints
         group.MapPost("/", CreateLearnerAsync).WithName("CreateLearner");
         group.MapGet("/", ListLearnersAsync).WithName("ListLearners");
         group.MapGet("/{id:guid}", GetLearnerAsync).WithName("GetLearner");
+        group.MapPut("/{id:guid}/avatar", UpdateAvatarAsync).WithName("UpdateLearnerAvatar");
+        group.MapPut("/{id:guid}/consent", SetConsentAsync).WithName("SetLearnerConsent");
     }
 
     private static async Task<IResult> CreateLearnerAsync(
@@ -116,7 +118,7 @@ public static class LearnerEndpoints
 
         return Results.Created(
             $"/api/learners/{learner.Id}",
-            new LearnerResponse(learner.Id, learner.DisplayName, learner.CreatedAt, consent.IsActive));
+            new LearnerResponse(learner.Id, learner.DisplayName, learner.CreatedAt, consent.IsActive, learner.AvatarConfig));
     }
 
     private static async Task<IResult> ListLearnersAsync(HttpContext httpContext, LearnBridgeDbContext dbContext)
@@ -147,7 +149,7 @@ public static class LearnerEndpoints
         }
 
         List<LearnerResponse> response = learners
-            .Select(l => new LearnerResponse(l.Id, l.DisplayName, l.CreatedAt, learnerIdsWithActiveConsent.Contains(l.Id)))
+            .Select(l => new LearnerResponse(l.Id, l.DisplayName, l.CreatedAt, learnerIdsWithActiveConsent.Contains(l.Id), l.AvatarConfig))
             .ToList();
 
         return Results.Ok(response);
@@ -179,6 +181,122 @@ public static class LearnerEndpoints
 
         httpContext.MarkLearnerAccess(learner.Id, "learners");
 
-        return Results.Ok(new LearnerResponse(learner.Id, learner.DisplayName, learner.CreatedAt, consentActive));
+        return Results.Ok(new LearnerResponse(learner.Id, learner.DisplayName, learner.CreatedAt, consentActive, learner.AvatarConfig));
+    }
+
+    /// <summary>
+    /// Avatar Studio save. The config is cosmetic self-expression (not
+    /// learning data, so no consent gate — see Learner.AvatarConfig), and a
+    /// learner may update their own; the write still audits.
+    /// </summary>
+    private static async Task<IResult> UpdateAvatarAsync(
+        Guid id,
+        UpdateAvatarRequest request,
+        HttpContext httpContext,
+        LearnBridgeDbContext dbContext,
+        IAuthorizationService authorizationService)
+    {
+        if (string.IsNullOrWhiteSpace(request.AvatarConfig) || request.AvatarConfig.Length > 4000)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["avatarConfig"] = ["Avatar config is required and must be at most 4000 characters."],
+            });
+        }
+
+        try
+        {
+            using System.Text.Json.JsonDocument _ = System.Text.Json.JsonDocument.Parse(request.AvatarConfig);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["avatarConfig"] = ["Avatar config must be valid JSON."],
+            });
+        }
+
+        Learner? learner = await dbContext.Learners.FirstOrDefaultAsync(l => l.Id == id);
+
+        if (learner is null)
+        {
+            return Results.NotFound();
+        }
+
+        AuthorizationResult authResult = await authorizationService.AuthorizeAsync(
+            httpContext.User, learner, "LearnerDataAccess");
+
+        if (!authResult.Succeeded)
+        {
+            return Results.Forbid();
+        }
+
+        learner.AvatarConfig = request.AvatarConfig;
+        learner.UpdatedAt = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync();
+
+        httpContext.MarkLearnerAccess(learner.Id, "learners");
+
+        bool consentActive = await dbContext.ParentalConsents
+            .AnyAsync(c => c.LearnerId == learner.Id && c.RevokedAt == null);
+
+        return Results.Ok(new LearnerResponse(learner.Id, learner.DisplayName, learner.CreatedAt, consentActive, learner.AvatarConfig));
+    }
+
+    /// <summary>
+    /// Parent dashboard consent toggle — parent-only (a learner must not be
+    /// able to grant their own consent). Revoking soft-deletes (RevokedAt)
+    /// so the consent history stays auditable; granting adds a fresh row.
+    /// The server-side write gates elsewhere read live state, so this takes
+    /// effect immediately (constraint 2).
+    /// </summary>
+    private static async Task<IResult> SetConsentAsync(
+        Guid id,
+        SetConsentRequest request,
+        HttpContext httpContext,
+        LearnBridgeDbContext dbContext)
+    {
+        Guid? parentId = httpContext.User.GetParentId();
+        bool isParent = httpContext.User.IsInRole(LearnBridgeRoles.Parent) ||
+            httpContext.User.HasClaim(LearnBridgeClaimTypes.Role, LearnBridgeRoles.Parent);
+
+        if (parentId is null || !isParent)
+        {
+            return Results.Forbid();
+        }
+
+        Learner? learner = await dbContext.Learners
+            .FirstOrDefaultAsync(l => l.Id == id && l.ParentId == parentId.Value);
+
+        if (learner is null)
+        {
+            return Results.NotFound();
+        }
+
+        List<ParentalConsent> activeConsents = await dbContext.ParentalConsents
+            .Where(c => c.LearnerId == learner.Id && c.RevokedAt == null)
+            .ToListAsync();
+
+        if (request.Active && activeConsents.Count == 0)
+        {
+            dbContext.ParentalConsents.Add(new ParentalConsent
+            {
+                LearnerId = learner.Id,
+                ParentId = parentId.Value,
+            });
+        }
+        else if (!request.Active)
+        {
+            foreach (ParentalConsent consent in activeConsents)
+            {
+                consent.RevokedAt = DateTime.UtcNow;
+            }
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        httpContext.MarkLearnerAccess(learner.Id, "parental_consent");
+
+        return Results.Ok(new LearnerResponse(learner.Id, learner.DisplayName, learner.CreatedAt, request.Active, learner.AvatarConfig));
     }
 }

@@ -168,6 +168,8 @@ app.MapJourneyEndpoints();
 app.MapGoalEndpoints();
 app.MapMemoryEndpoints();
 app.MapSyncEndpoints();
+app.MapBrainSparkEndpoints();
+app.MapDashboardEndpoints();
 
 app.MapGet("/api/health", () => Results.Ok(new
 {
