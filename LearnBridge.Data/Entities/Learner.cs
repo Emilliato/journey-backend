@@ -23,6 +23,15 @@ public sealed class Learner
 
     public string DisplayName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The learner's avatar as a JSON blob (skin/hair/eyes/accessory/outfit
+    /// colours chosen in the Avatar Studio). Cosmetic self-expression only —
+    /// deliberately opaque to the server: nothing in it is learning data, so
+    /// it is not consent-gated (constraint 2 covers learning_profile, goals,
+    /// journey_memory), but reads/writes still audit like any learner row.
+    /// </summary>
+    public string? AvatarConfig { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

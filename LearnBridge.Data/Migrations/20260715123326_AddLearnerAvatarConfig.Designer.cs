@@ -4,6 +4,7 @@ using LearnBridge.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LearnBridge.Data.Migrations
 {
     [DbContext(typeof(LearnBridgeDbContext))]
-    partial class LearnBridgeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260715123326_AddLearnerAvatarConfig")]
+    partial class AddLearnerAvatarConfig
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
