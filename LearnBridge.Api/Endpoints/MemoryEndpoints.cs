@@ -1,19 +1,15 @@
-using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Authorization;
-using LearnBridge.Data;
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Features.Memory;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 
 namespace LearnBridge.Api.Endpoints;
 
 /// <summary>
-/// Read-side for the learner's memory repository. Exists so the Angular
-/// client can cache what JOURNEY already knows about a learner while online
-/// (see OfflineCacheService), giving the offline persona the same
-/// personalised context the online system prompt gets. Like the goal read
-/// endpoint, this is a learner-linked read: it audits (constraint 5) but
-/// does not consent-gate — consent gates writes, not reads (constraint 2).
+/// Presentation for the memory repository. Listing is learner-scoped
+/// (policy-checked); deletion is parent-only — the requester's id is passed
+/// to the handler, which requires it to own the learner, so a learner token
+/// can never remove what a parent reviews.
 /// </summary>
 public static class MemoryEndpoints
 {
@@ -33,57 +29,27 @@ public static class MemoryEndpoints
     private static async Task<IResult> ListMemoriesAsync(
         Guid learnerId,
         HttpContext httpContext,
-        LearnBridgeDbContext dbContext,
+        ISender sender,
         IAuthorizationService authorizationService)
     {
-        Learner? learner = await dbContext.Learners.FirstOrDefaultAsync(l => l.Id == learnerId);
-
-        if (learner is null)
-        {
-            return Results.NotFound();
-        }
-
         AuthorizationResult authResult = await authorizationService.AuthorizeAsync(
-            httpContext.User, learner, "LearnerDataAccess");
+            httpContext.User, new LearnerScopedResource(learnerId), "LearnerDataAccess");
 
         if (!authResult.Succeeded)
         {
             return Results.Forbid();
         }
 
-        List<JourneyMemory> memories = await dbContext.JourneyMemories
-            .Where(m => m.LearnerId == learnerId)
-            .OrderByDescending(m => m.CreatedAt)
-            .ToListAsync();
+        IReadOnlyList<MemoryDto>? memories = await sender.Send(new ListMemoriesQuery(learnerId));
 
-        httpContext.MarkLearnerAccess(learnerId, "journey_memory");
-
-        var response = memories.Select(m => new
-        {
-            m.Id,
-            m.ConversationSessionId,
-            Category = ToCategoryString(m.Category),
-            m.Content,
-            m.CreatedAt,
-            m.UpdatedAt,
-        });
-
-        return Results.Ok(response);
+        return memories is null ? Results.NotFound() : Results.Ok(memories);
     }
 
-    /// <summary>
-    /// The parent dashboard's "remove" affordance on a memory card. Parent-
-    /// only by construction: the learner must not be able to silently edit
-    /// what their parent reviews, so this matches on ParentId directly
-    /// rather than using the shared LearnerDataAccess policy. A hard delete
-    /// is deliberate — the point of the affordance is that the data is gone —
-    /// and the access_audit_log row (constraint 5) records that it happened.
-    /// </summary>
     private static async Task<IResult> DeleteMemoryAsync(
         Guid learnerId,
         Guid memoryId,
         HttpContext httpContext,
-        LearnBridgeDbContext dbContext)
+        ISender sender)
     {
         Guid? parentId = httpContext.User.GetParentId();
 
@@ -92,36 +58,8 @@ public static class MemoryEndpoints
             return Results.Unauthorized();
         }
 
-        Learner? learner = await dbContext.Learners
-            .FirstOrDefaultAsync(l => l.Id == learnerId && l.ParentId == parentId.Value);
+        bool deleted = await sender.Send(new DeleteMemoryCommand(learnerId, memoryId, parentId.Value));
 
-        if (learner is null)
-        {
-            return Results.NotFound();
-        }
-
-        JourneyMemory? memory = await dbContext.JourneyMemories
-            .FirstOrDefaultAsync(m => m.Id == memoryId && m.LearnerId == learnerId);
-
-        if (memory is null)
-        {
-            return Results.NotFound();
-        }
-
-        dbContext.JourneyMemories.Remove(memory);
-        await dbContext.SaveChangesAsync();
-
-        httpContext.MarkLearnerAccess(learnerId, "journey_memory");
-
-        return Results.NoContent();
+        return deleted ? Results.NoContent() : Results.NotFound();
     }
-
-    private static string ToCategoryString(JourneyMemoryCategory category) => category switch
-    {
-        JourneyMemoryCategory.Academic => "academic",
-        JourneyMemoryCategory.Preference => "preference",
-        JourneyMemoryCategory.Engagement => "engagement",
-        JourneyMemoryCategory.GoalRelated => "goal_related",
-        _ => throw new InvalidOperationException($"Unhandled category '{category}'."),
-    };
 }

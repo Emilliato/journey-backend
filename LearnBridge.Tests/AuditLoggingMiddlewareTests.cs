@@ -2,7 +2,7 @@ using System.Security.Claims;
 using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Authorization;
 using LearnBridge.Data;
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Xunit;

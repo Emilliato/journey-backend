@@ -1,3 +1,5 @@
+using LearnBridge.Domain.Abstractions;
+using LearnBridge.Domain.Entities;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -6,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LearnBridge.Data;
 
 public sealed class LearnBridgeDbContext
-    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>, IApplicationDbContext
 {
     public LearnBridgeDbContext(DbContextOptions<LearnBridgeDbContext> options)
         : base(options)

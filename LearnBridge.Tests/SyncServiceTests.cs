@@ -1,9 +1,8 @@
-using LearnBridge.Api.Auditing;
-using LearnBridge.Api.Consent;
-using LearnBridge.Api.Features.Sync;
+using LearnBridge.Domain.Features.Sync;
+using LearnBridge.Domain.Abstractions;
+
 using LearnBridge.Data;
-using LearnBridge.Data.Entities;
-using Microsoft.AspNetCore.Http;
+using LearnBridge.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -20,13 +19,12 @@ public class SyncServiceTests
         return new LearnBridgeDbContext(options);
     }
 
-    private static (SyncService Service, HttpContext HttpContext) CreateService(LearnBridgeDbContext dbContext)
+    private static (SyncService Service, FakeAuditContext Audit) CreateService(LearnBridgeDbContext dbContext)
     {
-        DefaultHttpContext httpContext = new();
-        FakeHttpContextAccessor accessor = new(httpContext);
+        FakeAuditContext audit = new();
         ConsentGate consentGate = new(dbContext);
 
-        return (new SyncService(dbContext, consentGate, accessor), httpContext);
+        return (new SyncService(dbContext, consentGate, audit), audit);
     }
 
     private static async Task<Learner> SeedLearnerWithActiveConsentAsync(LearnBridgeDbContext dbContext)
@@ -65,7 +63,7 @@ public class SyncServiceTests
     {
         await using LearnBridgeDbContext dbContext = CreateDbContext();
         Learner learner = await SeedLearnerWithActiveConsentAsync(dbContext);
-        (SyncService service, HttpContext httpContext) = CreateService(dbContext);
+        (SyncService service, FakeAuditContext audit) = CreateService(dbContext);
 
         Guid goalId = Guid.NewGuid();
         DateTime updatedAt = DateTime.UtcNow;
@@ -81,7 +79,7 @@ public class SyncServiceTests
         Assert.Equal(goalId, resolved.Id);
         Assert.Equal("Active", resolved.Status);
         Assert.Single(dbContext.Goals);
-        Assert.Contains(httpContext.GetMarkedAccesses(), a => a.LearnerId == learner.Id && a.Resource == "goals");
+        Assert.Contains(audit.Marked, a => a.LearnerId == learner.Id && a.Resource == "goals");
     }
 
     [Fact]
@@ -198,7 +196,7 @@ public class SyncServiceTests
     {
         await using LearnBridgeDbContext dbContext = CreateDbContext();
         Learner learner = await SeedLearnerWithActiveConsentAsync(dbContext);
-        (SyncService service, HttpContext httpContext) = CreateService(dbContext);
+        (SyncService service, FakeAuditContext audit) = CreateService(dbContext);
 
         Guid memoryId = Guid.NewGuid();
         SyncBatchRequest request = new(
@@ -219,7 +217,7 @@ public class SyncServiceTests
         JourneyMemory stored = await dbContext.JourneyMemories.SingleAsync();
         Assert.Null(stored.ConversationSessionId);
         Assert.Equal(JourneyMemoryCategory.Preference, stored.Category);
-        Assert.Contains(httpContext.GetMarkedAccesses(), a => a.LearnerId == learner.Id && a.Resource == "journey_memory");
+        Assert.Contains(audit.Marked, a => a.LearnerId == learner.Id && a.Resource == "journey_memory");
     }
 
     [Fact]
@@ -240,14 +238,4 @@ public class SyncServiceTests
         Assert.Empty(result.Response!.JourneyMemories);
         Assert.Empty(dbContext.JourneyMemories);
     }
-}
-
-file sealed class FakeHttpContextAccessor : IHttpContextAccessor
-{
-    public FakeHttpContextAccessor(HttpContext httpContext)
-    {
-        HttpContext = httpContext;
-    }
-
-    public HttpContext? HttpContext { get; set; }
 }

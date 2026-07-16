@@ -1,4 +1,4 @@
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 
 namespace LearnBridge.Api.Authorization;

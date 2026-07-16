@@ -1,10 +1,8 @@
 using System.Text.Json.Nodes;
-using LearnBridge.Api.Auditing;
-using LearnBridge.Api.Consent;
-using LearnBridge.Api.Features.Journey;
+using LearnBridge.Domain.Abstractions;
+using LearnBridge.Domain.Features.Journey;
 using LearnBridge.Data;
-using LearnBridge.Data.Entities;
-using Microsoft.AspNetCore.Http;
+using LearnBridge.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -21,13 +19,12 @@ public class JourneyToolExecutorTests
         return new LearnBridgeDbContext(options);
     }
 
-    private static (JourneyToolExecutor Executor, HttpContext HttpContext) CreateExecutor(LearnBridgeDbContext dbContext)
+    private static (JourneyToolExecutor Executor, FakeAuditContext Audit) CreateExecutor(LearnBridgeDbContext dbContext)
     {
-        DefaultHttpContext httpContext = new();
-        FakeHttpContextAccessor accessor = new(httpContext);
+        FakeAuditContext audit = new();
         ConsentGate consentGate = new(dbContext);
 
-        return (new JourneyToolExecutor(dbContext, consentGate, accessor), httpContext);
+        return (new JourneyToolExecutor(dbContext, consentGate, audit), audit);
     }
 
     private static async Task<Learner> SeedLearnerWithActiveConsentAsync(LearnBridgeDbContext dbContext)
@@ -45,7 +42,7 @@ public class JourneyToolExecutorTests
     {
         await using LearnBridgeDbContext dbContext = CreateDbContext();
         Learner learner = await SeedLearnerWithActiveConsentAsync(dbContext);
-        (JourneyToolExecutor executor, HttpContext httpContext) = CreateExecutor(dbContext);
+        (JourneyToolExecutor executor, FakeAuditContext audit) = CreateExecutor(dbContext);
 
         JsonObject input = new() { ["category"] = "academic", ["content"] = "Strong at fractions." };
 
@@ -56,7 +53,7 @@ public class JourneyToolExecutorTests
         JourneyMemory memory = Assert.Single(dbContext.JourneyMemories);
         Assert.Equal(JourneyMemoryCategory.Academic, memory.Category);
         Assert.Equal(learner.Id, memory.LearnerId);
-        Assert.Contains(httpContext.GetMarkedAccesses(), a => a.LearnerId == learner.Id && a.Resource == "journey_memory");
+        Assert.Contains(audit.Marked, a => a.LearnerId == learner.Id && a.Resource == "journey_memory");
     }
 
     [Fact]
@@ -99,7 +96,7 @@ public class JourneyToolExecutorTests
     {
         await using LearnBridgeDbContext dbContext = CreateDbContext();
         Learner learner = await SeedLearnerWithActiveConsentAsync(dbContext);
-        (JourneyToolExecutor executor, HttpContext httpContext) = CreateExecutor(dbContext);
+        (JourneyToolExecutor executor, FakeAuditContext audit) = CreateExecutor(dbContext);
 
         JsonObject input = new() { ["title"] = "Read 10 books", ["status"] = "active" };
 
@@ -110,7 +107,7 @@ public class JourneyToolExecutorTests
         Goal goal = Assert.Single(dbContext.Goals);
         Assert.Equal("Read 10 books", goal.Title);
         Assert.Equal(GoalStatus.Active, goal.Status);
-        Assert.Contains(httpContext.GetMarkedAccesses(), a => a.LearnerId == learner.Id && a.Resource == "goals");
+        Assert.Contains(audit.Marked, a => a.LearnerId == learner.Id && a.Resource == "goals");
     }
 
     [Fact]
@@ -132,14 +129,4 @@ public class JourneyToolExecutorTests
         Goal goal = Assert.Single(dbContext.Goals);
         Assert.Equal(GoalStatus.Completed, goal.Status);
     }
-}
-
-file sealed class FakeHttpContextAccessor : IHttpContextAccessor
-{
-    public FakeHttpContextAccessor(HttpContext httpContext)
-    {
-        HttpContext = httpContext;
-    }
-
-    public HttpContext? HttpContext { get; set; }
 }

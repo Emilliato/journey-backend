@@ -1,15 +1,13 @@
-using LearnBridge.Api.Auditing;
-using LearnBridge.Data;
-using LearnBridge.Data.Entities;
+using LearnBridge.Api.Authorization;
+using LearnBridge.Domain.Features.Goals;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 
 namespace LearnBridge.Api.Endpoints;
 
 /// <summary>
-/// Read-side for the Angular goal panel's initial load — live updates
-/// during a conversation come back inline from
-/// POST /api/journey/sessions/{id}/messages instead of a second round trip.
+/// Presentation for the goal read-side. Thin: enforces the LearnerDataAccess
+/// policy, then dispatches <see cref="ListGoalsQuery"/>.
 /// </summary>
 public static class GoalEndpoints
 {
@@ -24,40 +22,19 @@ public static class GoalEndpoints
     private static async Task<IResult> ListGoalsAsync(
         Guid learnerId,
         HttpContext httpContext,
-        LearnBridgeDbContext dbContext,
+        ISender sender,
         IAuthorizationService authorizationService)
     {
-        Learner? learner = await dbContext.Learners.FirstOrDefaultAsync(l => l.Id == learnerId);
-
-        if (learner is null)
-        {
-            return Results.NotFound();
-        }
-
         AuthorizationResult authResult = await authorizationService.AuthorizeAsync(
-            httpContext.User, learner, "LearnerDataAccess");
+            httpContext.User, new LearnerScopedResource(learnerId), "LearnerDataAccess");
 
         if (!authResult.Succeeded)
         {
             return Results.Forbid();
         }
 
-        List<Goal> goals = await dbContext.Goals
-            .Where(g => g.LearnerId == learnerId)
-            .OrderByDescending(g => g.UpdatedAt)
-            .ToListAsync();
+        IReadOnlyList<GoalListItemDto>? goals = await sender.Send(new ListGoalsQuery(learnerId));
 
-        httpContext.MarkLearnerAccess(learnerId, "goals");
-
-        var response = goals.Select(g => new
-        {
-            g.Id,
-            g.Title,
-            g.Description,
-            Status = g.Status.ToString(),
-            g.UpdatedAt,
-        });
-
-        return Results.Ok(response);
+        return goals is null ? Results.NotFound() : Results.Ok(goals);
     }
 }

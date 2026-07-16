@@ -22,48 +22,6 @@ namespace LearnBridge.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.AccessAuditLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.Property<Guid>("ActorId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("LearnerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("OccurredAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("RequestPath")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
-
-                    b.Property<string>("Resource")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<int>("ResponseStatusCode")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LearnerId");
-
-                    b.HasIndex("OccurredAt");
-
-                    b.ToTable("AccessAuditLogs");
-                });
-
             modelBuilder.Entity("LearnBridge.Data.Entities.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -136,7 +94,49 @@ namespace LearnBridge.Data.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.ConversationSession", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.AccessAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LearnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestPath")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("Resource")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("ResponseStatusCode")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LearnerId");
+
+                    b.HasIndex("OccurredAt");
+
+                    b.ToTable("AccessAuditLogs");
+                });
+
+            modelBuilder.Entity("LearnBridge.Domain.Entities.ConversationSession", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -164,7 +164,7 @@ namespace LearnBridge.Data.Migrations
                     b.ToTable("ConversationSessions");
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.Goal", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.Goal", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -198,7 +198,7 @@ namespace LearnBridge.Data.Migrations
                     b.ToTable("Goals");
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.JourneyMemory", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.JourneyMemory", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -234,7 +234,7 @@ namespace LearnBridge.Data.Migrations
                     b.ToTable("JourneyMemories");
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.Learner", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.Learner", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -267,7 +267,7 @@ namespace LearnBridge.Data.Migrations
                     b.ToTable("Learners");
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.LearningProfile", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.LearningProfile", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -297,7 +297,7 @@ namespace LearnBridge.Data.Migrations
                     b.ToTable("LearningProfiles");
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.ParentalConsent", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.ParentalConsent", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -455,39 +455,39 @@ namespace LearnBridge.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.ConversationSession", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.ConversationSession", b =>
                 {
-                    b.HasOne("LearnBridge.Data.Entities.Learner", null)
+                    b.HasOne("LearnBridge.Domain.Entities.Learner", null)
                         .WithMany()
                         .HasForeignKey("LearnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.Goal", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.Goal", b =>
                 {
-                    b.HasOne("LearnBridge.Data.Entities.Learner", null)
+                    b.HasOne("LearnBridge.Domain.Entities.Learner", null)
                         .WithMany()
                         .HasForeignKey("LearnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.JourneyMemory", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.JourneyMemory", b =>
                 {
-                    b.HasOne("LearnBridge.Data.Entities.ConversationSession", null)
+                    b.HasOne("LearnBridge.Domain.Entities.ConversationSession", null)
                         .WithMany()
                         .HasForeignKey("ConversationSessionId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("LearnBridge.Data.Entities.Learner", null)
+                    b.HasOne("LearnBridge.Domain.Entities.Learner", null)
                         .WithMany()
                         .HasForeignKey("LearnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.Learner", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.Learner", b =>
                 {
                     b.HasOne("LearnBridge.Data.Entities.ApplicationUser", null)
                         .WithMany()
@@ -496,18 +496,18 @@ namespace LearnBridge.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.LearningProfile", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.LearningProfile", b =>
                 {
-                    b.HasOne("LearnBridge.Data.Entities.Learner", null)
+                    b.HasOne("LearnBridge.Domain.Entities.Learner", null)
                         .WithMany()
                         .HasForeignKey("LearnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("LearnBridge.Data.Entities.ParentalConsent", b =>
+            modelBuilder.Entity("LearnBridge.Domain.Entities.ParentalConsent", b =>
                 {
-                    b.HasOne("LearnBridge.Data.Entities.Learner", null)
+                    b.HasOne("LearnBridge.Domain.Entities.Learner", null)
                         .WithMany()
                         .HasForeignKey("LearnerId")
                         .OnDelete(DeleteBehavior.Cascade)
