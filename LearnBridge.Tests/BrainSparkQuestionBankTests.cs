@@ -1,4 +1,4 @@
-using LearnBridge.Api.Features.BrainSparks;
+using LearnBridge.Domain.Features.BrainSparks;
 using LearnBridge.Domain.Entities;
 using Xunit;
 

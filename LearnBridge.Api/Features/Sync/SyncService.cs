@@ -1,5 +1,5 @@
 using LearnBridge.Api.Auditing;
-using LearnBridge.Api.Consent;
+using LearnBridge.Domain.Abstractions;
 using LearnBridge.Data;
 using LearnBridge.Domain.Entities;
 using Microsoft.AspNetCore.Http;

@@ -1,6 +1,6 @@
 using LearnBridge.Domain.Entities;
 
-namespace LearnBridge.Api.Features.BrainSparks;
+namespace LearnBridge.Domain.Features.BrainSparks;
 
 public sealed record BrainSparkQuestion(
     string Id,

@@ -1,6 +1,6 @@
 using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Authorization;
-using LearnBridge.Api.Consent;
+using LearnBridge.Domain.Abstractions;
 using LearnBridge.Api.Features.Journey;
 using LearnBridge.Data;
 using LearnBridge.Domain.Entities;

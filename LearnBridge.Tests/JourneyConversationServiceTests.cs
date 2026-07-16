@@ -1,5 +1,5 @@
 using LearnBridge.Api.AI.Claude;
-using LearnBridge.Api.Consent;
+using LearnBridge.Domain.Abstractions;
 using LearnBridge.Api.Features.Journey;
 using LearnBridge.Data;
 using LearnBridge.Domain.Entities;
