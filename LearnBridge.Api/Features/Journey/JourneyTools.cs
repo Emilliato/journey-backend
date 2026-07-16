@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using LearnBridge.Api.AI.Claude;
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Entities;
 
 namespace LearnBridge.Api.Features.Journey;
 

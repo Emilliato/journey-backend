@@ -8,6 +8,7 @@ using LearnBridge.Api.Endpoints;
 using LearnBridge.Api.Features.Journey;
 using LearnBridge.Api.Features.Sync;
 using LearnBridge.Data;
+using LearnBridge.Domain.Entities;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;

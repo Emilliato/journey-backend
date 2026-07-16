@@ -1,4 +1,4 @@
-namespace LearnBridge.Data.Entities;
+namespace LearnBridge.Domain.Entities;
 
 /// <summary>
 /// Closed set, per CLAUDE.md constraint 4 — do not add members without

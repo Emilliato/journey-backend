@@ -1,7 +1,7 @@
 using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Authorization;
 using LearnBridge.Data;
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 

@@ -1,3 +1,4 @@
+using LearnBridge.Domain.Entities;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;

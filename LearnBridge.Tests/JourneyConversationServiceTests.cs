@@ -2,7 +2,7 @@ using LearnBridge.Api.AI.Claude;
 using LearnBridge.Api.Consent;
 using LearnBridge.Api.Features.Journey;
 using LearnBridge.Data;
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Xunit;

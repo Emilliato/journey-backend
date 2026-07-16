@@ -1,4 +1,4 @@
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Entities;
 
 namespace LearnBridge.Api.Features;
 

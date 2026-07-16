@@ -1,5 +1,5 @@
 using LearnBridge.Api.Features.BrainSparks;
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Entities;
 using Xunit;
 
 namespace LearnBridge.Tests;

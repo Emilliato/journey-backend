@@ -1,3 +1,4 @@
+using LearnBridge.Domain.Entities;
 using LearnBridge.Data.Entities;
 
 namespace LearnBridge.Api.Auth;

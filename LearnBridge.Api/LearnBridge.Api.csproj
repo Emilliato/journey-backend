@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LearnBridge.Domain\LearnBridge.Domain.csproj" />
     <ProjectReference Include="..\LearnBridge.Data\LearnBridge.Data.csproj" />
   </ItemGroup>
 

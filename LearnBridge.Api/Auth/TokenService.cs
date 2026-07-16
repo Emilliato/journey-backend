@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using LearnBridge.Api.Authorization;
+using LearnBridge.Domain.Entities;
 using LearnBridge.Data.Entities;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
