@@ -8,6 +8,7 @@ using LearnBridge.Api.Endpoints;
 using LearnBridge.Api.Features.Journey;
 using LearnBridge.Api.Features.Sync;
 using LearnBridge.Data;
+using LearnBridge.Domain.Abstractions;
 using LearnBridge.Domain.Entities;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -24,6 +25,17 @@ builder.Services.AddDbContext<LearnBridgeDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
+
+// The application layer depends on IApplicationDbContext, not the concrete
+// EF context. Same scoped instance either way.
+builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<LearnBridgeDbContext>());
+
+// Mediator: application handlers live in the Domain assembly.
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(IApplicationDbContext).Assembly));
+
+// Audit port (presentation impl over the current HTTP request).
+builder.Services.AddScoped<IAuditContext, AuditContext>();
 
 // Parent accounts only — see ApplicationUser and CLAUDE.md constraint 1.
 // AddIdentityCore (not AddIdentity) since this is a token-based API with no

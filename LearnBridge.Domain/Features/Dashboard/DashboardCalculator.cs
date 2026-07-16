@@ -1,6 +1,6 @@
 using LearnBridge.Domain.Entities;
 
-namespace LearnBridge.Api.Features.Dashboard;
+namespace LearnBridge.Domain.Features.Dashboard;
 
 /// <summary>
 /// Pure aggregation over a learner's sessions, goals, and memories — split

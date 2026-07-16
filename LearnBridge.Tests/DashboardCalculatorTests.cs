@@ -1,4 +1,4 @@
-using LearnBridge.Api.Features.Dashboard;
+using LearnBridge.Domain.Features.Dashboard;
 using LearnBridge.Domain.Entities;
 using Xunit;
 

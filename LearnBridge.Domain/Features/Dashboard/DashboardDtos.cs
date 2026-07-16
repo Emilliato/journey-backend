@@ -1,4 +1,4 @@
-namespace LearnBridge.Api.Features.Dashboard;
+namespace LearnBridge.Domain.Features.Dashboard;
 
 public sealed record DashboardStats(
     int StreakDays,
