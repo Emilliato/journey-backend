@@ -1,15 +1,14 @@
-using LearnBridge.Api.Features.Sync;
-using LearnBridge.Data;
-using LearnBridge.Domain.Entities;
+using LearnBridge.Api.Authorization;
+using LearnBridge.Domain.Features.Sync;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 
 namespace LearnBridge.Api.Endpoints;
 
 /// <summary>
-/// The Sync API — see PLAN.md Phase 5. One batch upsert endpoint; the
-/// Angular Sync Manager decides when to call it (on reconnect) and which
-/// pending Dexie records to send.
+/// The Sync API — see PLAN.md Phase 5. One batch upsert endpoint; the Angular
+/// Sync Manager decides when to call it (on reconnect) and which pending Dexie
+/// records to send. Thin: authorize, then dispatch.
 /// </summary>
 public static class SyncEndpoints
 {
@@ -24,35 +23,27 @@ public static class SyncEndpoints
     private static async Task<IResult> SyncBatchAsync(
         SyncBatchRequest request,
         HttpContext httpContext,
-        LearnBridgeDbContext dbContext,
-        SyncService syncService,
+        ISender sender,
         IAuthorizationService authorizationService)
     {
-        Learner? learner = await dbContext.Learners.FirstOrDefaultAsync(l => l.Id == request.LearnerId);
-
-        if (learner is null)
-        {
-            return Results.NotFound();
-        }
-
         AuthorizationResult authResult = await authorizationService.AuthorizeAsync(
-            httpContext.User, learner, "LearnerDataAccess");
+            httpContext.User, new LearnerScopedResource(request.LearnerId), "LearnerDataAccess");
 
         if (!authResult.Succeeded)
         {
             return Results.Forbid();
         }
 
-        SyncBatchResult result = await syncService.ApplyBatchAsync(request.LearnerId, request, httpContext.RequestAborted);
+        SyncBatchOutcome outcome = await sender.Send(new SyncBatchCommand(request));
 
-        if (result.Status == SyncBatchStatus.ConsentInactive)
+        return outcome.Status switch
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
+            SyncBatchOutcomeStatus.LearnerNotFound => Results.NotFound(),
+            SyncBatchOutcomeStatus.ConsentInactive => Results.ValidationProblem(new Dictionary<string, string[]>
             {
                 ["consent"] = ["Parental consent for this learner is not active."],
-            });
-        }
-
-        return Results.Ok(result.Response);
+            }),
+            _ => Results.Ok(outcome.Response),
+        };
     }
 }

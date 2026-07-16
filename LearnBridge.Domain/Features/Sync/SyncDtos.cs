@@ -1,4 +1,4 @@
-namespace LearnBridge.Api.Features.Sync;
+namespace LearnBridge.Domain.Features.Sync;
 
 public sealed record SyncGoalDto(Guid Id, string Title, string? Description, string Status, DateTime UpdatedAt);
 

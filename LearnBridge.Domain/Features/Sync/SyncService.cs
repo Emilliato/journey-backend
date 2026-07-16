@@ -1,12 +1,9 @@
-using LearnBridge.Domain.Features;
-using LearnBridge.Api.Auditing;
 using LearnBridge.Domain.Abstractions;
-using LearnBridge.Data;
 using LearnBridge.Domain.Entities;
-using Microsoft.AspNetCore.Http;
+using LearnBridge.Domain.Features;
 using Microsoft.EntityFrameworkCore;
 
-namespace LearnBridge.Api.Features.Sync;
+namespace LearnBridge.Domain.Features.Sync;
 
 public enum SyncBatchStatus
 {
@@ -32,16 +29,15 @@ public sealed class SyncBatchResult
 /// </summary>
 public sealed class SyncService
 {
-    private readonly LearnBridgeDbContext _dbContext;
+    private readonly IApplicationDbContext _dbContext;
     private readonly ConsentGate _consentGate;
-    private readonly HttpContext _httpContext;
+    private readonly IAuditContext _auditContext;
 
-    public SyncService(LearnBridgeDbContext dbContext, ConsentGate consentGate, IHttpContextAccessor httpContextAccessor)
+    public SyncService(IApplicationDbContext dbContext, ConsentGate consentGate, IAuditContext auditContext)
     {
         _dbContext = dbContext;
         _consentGate = consentGate;
-        _httpContext = httpContextAccessor.HttpContext
-            ?? throw new InvalidOperationException("SyncService requires an active HTTP context.");
+        _auditContext = auditContext;
     }
 
     public async Task<SyncBatchResult> ApplyBatchAsync(Guid learnerId, SyncBatchRequest request, CancellationToken cancellationToken)
@@ -77,12 +73,12 @@ public sealed class SyncService
 
         if (request.Goals.Count > 0)
         {
-            _httpContext.MarkLearnerAccess(learnerId, "goals");
+            _auditContext.MarkLearnerAccess(learnerId, "goals");
         }
 
         if (request.JourneyMemories.Count > 0)
         {
-            _httpContext.MarkLearnerAccess(learnerId, "journey_memory");
+            _auditContext.MarkLearnerAccess(learnerId, "journey_memory");
         }
 
         return new SyncBatchResult

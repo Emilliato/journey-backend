@@ -6,7 +6,7 @@ using LearnBridge.Api.AI.Claude;
 using LearnBridge.Api.Authorization;
 using LearnBridge.Api.Endpoints;
 using LearnBridge.Domain.Features.Journey;
-using LearnBridge.Api.Features.Sync;
+using LearnBridge.Domain.Features.Sync;
 using LearnBridge.Data;
 using LearnBridge.Domain.Entities;
 using LearnBridge.Data.Entities;
