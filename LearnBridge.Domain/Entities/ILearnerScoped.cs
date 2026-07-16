@@ -1,4 +1,4 @@
-namespace LearnBridge.Data.Entities;
+namespace LearnBridge.Domain.Entities;
 
 /// <summary>
 /// Implemented by any entity whose row belongs to exactly one learner, so

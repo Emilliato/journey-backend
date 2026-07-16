@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Mediator pattern. Pinned to the 12.x line, which is free/OSS-licensed
+         (v13+ moved to a commercial licence). -->
+    <PackageReference Include="MediatR" Version="12.4.1" />
+    <!-- The application layer defines IApplicationDbContext over EF Core's
+         DbSet/IQueryable, so it needs the EF Core abstractions (not a
+         provider). The concrete provider lives in LearnBridge.Data. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,4 @@
-namespace LearnBridge.Data.Entities;
+namespace LearnBridge.Domain.Entities;
 
 /// <summary>
 /// One JOURNEY conversation, either routed to Claude (online) or WebLLM

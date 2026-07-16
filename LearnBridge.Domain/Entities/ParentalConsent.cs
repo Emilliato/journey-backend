@@ -1,4 +1,4 @@
-namespace LearnBridge.Data.Entities;
+namespace LearnBridge.Domain.Entities;
 
 /// <summary>
 /// Gates every write to <see cref="LearningProfile"/>, <see cref="Goal"/>,

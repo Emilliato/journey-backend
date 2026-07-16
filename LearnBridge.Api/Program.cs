@@ -1,8 +1,14 @@
 using System.Text;
+using LearnBridge.Domain.Abstractions;
 using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Auth;
+using LearnBridge.Api.AI.Claude;
 using LearnBridge.Api.Authorization;
+using LearnBridge.Api.Endpoints;
+using LearnBridge.Domain.Features.Journey;
+using LearnBridge.Domain.Features.Sync;
 using LearnBridge.Data;
+using LearnBridge.Domain.Entities;
 using LearnBridge.Data.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -18,6 +24,17 @@ builder.Services.AddDbContext<LearnBridgeDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
+
+// The application layer depends on IApplicationDbContext, not the concrete
+// EF context. Same scoped instance either way.
+builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<LearnBridgeDbContext>());
+
+// Mediator: application handlers live in the Domain assembly.
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(IApplicationDbContext).Assembly));
+
+// Audit port (presentation impl over the current HTTP request).
+builder.Services.AddScoped<IAuditContext, AuditContext>();
 
 // Parent accounts only — see ApplicationUser and CLAUDE.md constraint 1.
 // AddIdentityCore (not AddIdentity) since this is a token-based API with no
@@ -65,31 +82,107 @@ builder.Services.AddScoped<IAuthorizationHandler, ParentOwnsLearnerDirectHandler
 builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataDirectHandler>();
 
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IIdentityService, IdentityService>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<ClaudeOptions>(builder.Configuration.GetSection("Claude"));
+builder.Services.AddScoped<ConsentGate>();
+builder.Services.AddScoped<JourneyToolExecutor>();
+builder.Services.AddScoped<JourneyConversationService>();
+builder.Services.AddSingleton<IJourneySessionStore, InMemoryJourneySessionStore>();
+builder.Services.AddScoped<SyncService>();
+
+// FakeClaudeClient until a real key is configured — see ClaudeOptions and
+// CLAUDE.md constraint 3. Lets the whole proxy (sessions, tool execution,
+// consent gating, audit logging, the Angular chat UI) be built and tested
+// end-to-end without a live Anthropic key.
+if (string.IsNullOrWhiteSpace(builder.Configuration["Claude:ApiKey"]))
+{
+    builder.Services.AddSingleton<IClaudeClient, FakeClaudeClient>();
+}
+else
+{
+    builder.Services.AddHttpClient<IClaudeClient, AnthropicClaudeClient>();
+}
+
+const string AngularClientCorsPolicy = "AngularClient";
+string[] allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(AngularClientCorsPolicy, policy =>
+    {
+        // Bearer tokens live in a header, not a cookie, so no
+        // AllowCredentials() is needed — just an origin allowlist.
+        if (builder.Environment.IsDevelopment())
+        {
+            // Dev on the LAN: the Angular app is served from a dynamic host
+            // IP (e.g. http://192.168.1.50:4200), so there's no fixed origin
+            // to list — allow any. Safe here because auth is a Bearer header,
+            // not a cookie (so no AllowCredentials, no CSRF surface). This
+            // supersedes the illustrative Cors:AllowedOrigins in
+            // appsettings.Development.json, which only applies outside dev.
+            // Production requires an explicit Cors:AllowedOrigins list.
+            policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod();
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        }
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+}
 
-    // No migration/deployment pipeline yet — self-create the schema against
-    // the configured SQL Server on dev startup for convenience, same as the
-    // EchoMate backend's pattern.
-    using (IServiceScope migrationScope = app.Services.CreateScope())
+// Apply migrations on startup in every environment: the deploy pipeline has no
+// network path to the production SQL Server, so schema changes ship with the
+// app and apply on first boot after a deploy (idempotent — no-op when current).
+using (IServiceScope migrationScope = app.Services.CreateScope())
+{
+    LearnBridgeDbContext dbContext = migrationScope.ServiceProvider
+        .GetRequiredService<LearnBridgeDbContext>();
+
+    dbContext.Database.Migrate();
+
+    // Seed the two Identity roles (idempotent). Parents get "Parent" at
+    // registration; learner accounts get "Learner" when the parent creates
+    // the child profile — see LearnerEndpoints.
+    RoleManager<IdentityRole<Guid>> roleManager = migrationScope.ServiceProvider
+        .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
+    foreach (string role in new[] { LearnBridgeRoles.Parent, LearnBridgeRoles.Learner })
     {
-        LearnBridgeDbContext dbContext = migrationScope.ServiceProvider
-            .GetRequiredService<LearnBridgeDbContext>();
-
-        dbContext.Database.Migrate();
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole<Guid>(role));
+        }
     }
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(AngularClientCorsPolicy);
 
 app.UseAuthentication();
 
 app.UseAuthorization();
 
 app.UseAuditLogging();
+
+app.MapAuthEndpoints();
+app.MapLearnerEndpoints();
+app.MapJourneyEndpoints();
+app.MapGoalEndpoints();
+app.MapMemoryEndpoints();
+app.MapSyncEndpoints();
+app.MapBrainSparkEndpoints();
+app.MapDashboardEndpoints();
 
 app.MapGet("/api/health", () => Results.Ok(new
 {

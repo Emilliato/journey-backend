@@ -1,6 +1,6 @@
 using LearnBridge.Api.Authorization;
 using LearnBridge.Data;
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 
 namespace LearnBridge.Api.Auditing;
@@ -26,10 +26,9 @@ public sealed class AuditLoggingMiddleware
     {
         await _next(context);
 
-        Guid? learnerId = context.GetAuditLearnerId();
-        string? resource = context.GetAuditResource();
+        IReadOnlyList<(Guid LearnerId, string Resource)> markedAccesses = context.GetMarkedAccesses();
 
-        if (learnerId is null || string.IsNullOrWhiteSpace(resource))
+        if (markedAccesses.Count == 0)
         {
             return;
         }
@@ -48,15 +47,18 @@ public sealed class AuditLoggingMiddleware
             ? AuditAction.Read
             : AuditAction.Write;
 
-        dbContext.AccessAuditLogs.Add(new AccessAuditLog
+        foreach ((Guid learnerId, string resource) in markedAccesses)
         {
-            LearnerId = learnerId.Value,
-            ActorId = actorId,
-            Action = action,
-            Resource = resource,
-            RequestPath = context.Request.Path,
-            ResponseStatusCode = context.Response.StatusCode,
-        });
+            dbContext.AccessAuditLogs.Add(new AccessAuditLog
+            {
+                LearnerId = learnerId,
+                ActorId = actorId,
+                Action = action,
+                Resource = resource,
+                RequestPath = context.Request.Path,
+                ResponseStatusCode = context.Response.StatusCode,
+            });
+        }
 
         await dbContext.SaveChangesAsync();
     }

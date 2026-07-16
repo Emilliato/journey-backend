@@ -2,7 +2,7 @@ using System.Security.Claims;
 using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Authorization;
 using LearnBridge.Data;
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -76,6 +76,34 @@ public class AuditLoggingMiddlewareTests
 
         AccessAuditLog logEntry = Assert.Single(dbContext.AccessAuditLogs);
         Assert.Equal(AuditAction.Write, logEntry.Action);
+    }
+
+    [Fact]
+    public async Task WritesOneRowPerLearner_WhenMultipleLearnersMarkedInOneRequest()
+    {
+        Guid learnerOneId = Guid.NewGuid();
+        Guid learnerTwoId = Guid.NewGuid();
+
+        await using LearnBridgeDbContext dbContext = CreateDbContext();
+
+        DefaultHttpContext httpContext = new();
+        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        httpContext.Request.Method = "GET";
+
+        AuditLoggingMiddleware middleware = new(next: ctx =>
+        {
+            // Simulates a list endpoint (e.g. GET /api/learners) touching
+            // more than one learner's row in a single request.
+            ctx.MarkLearnerAccess(learnerOneId, "learners");
+            ctx.MarkLearnerAccess(learnerTwoId, "learners");
+            return Task.CompletedTask;
+        });
+
+        await middleware.InvokeAsync(httpContext, dbContext);
+
+        Assert.Equal(2, dbContext.AccessAuditLogs.Count());
+        Assert.Contains(dbContext.AccessAuditLogs, l => l.LearnerId == learnerOneId);
+        Assert.Contains(dbContext.AccessAuditLogs, l => l.LearnerId == learnerTwoId);
     }
 
     [Fact]

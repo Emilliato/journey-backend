@@ -1,4 +1,4 @@
-namespace LearnBridge.Data.Entities;
+namespace LearnBridge.Domain.Entities;
 
 public enum GoalStatus
 {

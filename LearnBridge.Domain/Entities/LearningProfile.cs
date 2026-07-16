@@ -1,4 +1,4 @@
-namespace LearnBridge.Data.Entities;
+namespace LearnBridge.Domain.Entities;
 
 /// <summary>
 /// One per learner. Write requires an active <see cref="ParentalConsent"/>

@@ -22,4 +22,8 @@
     <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\LearnBridge.Domain\LearnBridge.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

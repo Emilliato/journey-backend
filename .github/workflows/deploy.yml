@@ -1,0 +1,71 @@
+name: Deploy .NET 10 App to IIS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        include-prerelease: true
+
+    - name: Restore dependencies
+      run: dotnet restore ./LearnBridge.slnx
+
+    - name: Build
+      run: dotnet build ./LearnBridge.slnx --configuration Release --no-restore
+
+    - name: Publish (Self-contained)
+      run: dotnet publish ./LearnBridge.Api/LearnBridge.Api.csproj -c Release -r win-x64 --self-contained true -o ./publish
+
+    # appsettings.json ships with empty secrets (see its _comment_secrets note).
+    # Production values come from GitHub repository secrets and are written into
+    # the publish folder here, so they survive the msdeploy sync (which deletes
+    # any server-side file not present in the source). ASPNETCORE_ENVIRONMENT
+    # defaults to Production on the server, so this file is loaded and its
+    # non-empty keys override appsettings.json.
+    - name: Write production settings
+      shell: powershell
+      env:
+        PROD_CONNECTION_STRING: ${{ secrets.PROD_CONNECTION_STRING }}
+        PROD_JWT_SIGNING_KEY: ${{ secrets.PROD_JWT_SIGNING_KEY }}
+        PROD_CLAUDE_API_KEY: ${{ secrets.PROD_CLAUDE_API_KEY }}
+      run: |
+        $settings = [ordered]@{
+          ConnectionStrings = @{ DefaultConnection = $env:PROD_CONNECTION_STRING }
+          Jwt = @{ SigningKey = $env:PROD_JWT_SIGNING_KEY }
+          Claude = @{
+            ApiKey = $env:PROD_CLAUDE_API_KEY
+            Model = "claude-opus-4-8"
+          }
+        } | ConvertTo-Json -Depth 3
+        Set-Content -Path "$env:GITHUB_WORKSPACE\publish\appsettings.Production.json" -Value $settings -Encoding UTF8
+
+    - name: Debug publish folder
+      shell: powershell
+      run: dir $env:GITHUB_WORKSPACE\publish
+
+    - name: Deploy to IIS using Web Deploy
+      shell: powershell
+      run: |
+        $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+
+        $username = "${{ secrets.DEPLOY_USER }}"
+        $password = "${{ secrets.DEPLOY_PASSWORD }}"
+
+        & $msdeploy `
+          -verb:sync `
+          -source:contentPath=$env:GITHUB_WORKSPACE\publish `
+          -dest:contentPath=LearnBridge,computerName=https://173.225.111.165:8172/msdeploy.axd,userName="$username",password="$password",authType=Basic `
+          -enableRule:AppOffline `
+          -allowUntrusted
