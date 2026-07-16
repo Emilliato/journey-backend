@@ -1,9 +1,8 @@
 using LearnBridge.Api.AI.Claude;
 using LearnBridge.Domain.Abstractions;
-using LearnBridge.Api.Features.Journey;
+using LearnBridge.Domain.Features.Journey;
 using LearnBridge.Data;
 using LearnBridge.Domain.Entities;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -28,10 +27,7 @@ public class JourneyConversationServiceTests
         Learner learner = new() { ParentId = Guid.NewGuid(), DisplayName = "Test Learner" };
         dbContext.Learners.Add(learner);
         dbContext.ParentalConsents.Add(new ParentalConsent { LearnerId = learner.Id, ParentId = learner.ParentId });
-        await dbContext.SaveChangesAsync();
-
-        IHttpContextAccessor accessor = new FakeAccessor(new DefaultHttpContext());
-        JourneyToolExecutor toolExecutor = new(dbContext, new ConsentGate(dbContext), accessor);
+        await dbContext.SaveChangesAsync();        JourneyToolExecutor toolExecutor = new(dbContext, new ConsentGate(dbContext), new FakeAuditContext());
         JourneyConversationService service = new(new FakeClaudeClient(), toolExecutor);
 
         JourneySessionState session = new()
@@ -61,10 +57,7 @@ public class JourneyConversationServiceTests
         Learner learner = new() { ParentId = Guid.NewGuid(), DisplayName = "Test Learner" };
         dbContext.Learners.Add(learner);
         dbContext.ParentalConsents.Add(new ParentalConsent { LearnerId = learner.Id, ParentId = learner.ParentId });
-        await dbContext.SaveChangesAsync();
-
-        IHttpContextAccessor accessor = new FakeAccessor(new DefaultHttpContext());
-        JourneyToolExecutor toolExecutor = new(dbContext, new ConsentGate(dbContext), accessor);
+        await dbContext.SaveChangesAsync();        JourneyToolExecutor toolExecutor = new(dbContext, new ConsentGate(dbContext), new FakeAuditContext());
         JourneyConversationService service = new(new FakeClaudeClient(), toolExecutor);
 
         JourneySessionState session = new()
@@ -92,10 +85,7 @@ public class JourneyConversationServiceTests
         Learner learner = new() { ParentId = Guid.NewGuid(), DisplayName = "Test Learner" };
         dbContext.Learners.Add(learner);
         dbContext.ParentalConsents.Add(new ParentalConsent { LearnerId = learner.Id, ParentId = learner.ParentId });
-        await dbContext.SaveChangesAsync();
-
-        IHttpContextAccessor accessor = new FakeAccessor(new DefaultHttpContext());
-        JourneyToolExecutor toolExecutor = new(dbContext, new ConsentGate(dbContext), accessor);
+        await dbContext.SaveChangesAsync();        JourneyToolExecutor toolExecutor = new(dbContext, new ConsentGate(dbContext), new FakeAuditContext());
         JourneyConversationService service = new(new FakeClaudeClient(), toolExecutor);
 
         JourneySessionState session = new()
@@ -145,14 +135,4 @@ public class JourneyPersonaTests
         Assert.Contains("(goal-related) Wants to master fractions.", prompt);
         Assert.DoesNotContain("Getting to know Emma", prompt);
     }
-}
-
-file sealed class FakeAccessor : IHttpContextAccessor
-{
-    public FakeAccessor(HttpContext httpContext)
-    {
-        HttpContext = httpContext;
-    }
-
-    public HttpContext? HttpContext { get; set; }
 }

@@ -1,7 +1,7 @@
 using System.Text;
 using LearnBridge.Domain.Entities;
 
-namespace LearnBridge.Api.Features.Journey;
+namespace LearnBridge.Domain.Features.Journey;
 
 /// <summary>
 /// Builds the online JOURNEY system prompt for one session. Deliberately

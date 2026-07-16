@@ -1,3 +1,4 @@
+using LearnBridge.Domain.Features;
 using LearnBridge.Api.Auditing;
 using LearnBridge.Domain.Abstractions;
 using LearnBridge.Data;

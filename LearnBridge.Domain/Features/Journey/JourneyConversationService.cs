@@ -1,6 +1,6 @@
-using LearnBridge.Api.AI.Claude;
+using LearnBridge.Domain.Abstractions;
 
-namespace LearnBridge.Api.Features.Journey;
+namespace LearnBridge.Domain.Features.Journey;
 
 /// <summary>
 /// Runs one user message through JOURNEY: send to Claude, execute any tool

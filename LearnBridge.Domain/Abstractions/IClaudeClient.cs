@@ -1,4 +1,4 @@
-namespace LearnBridge.Api.AI.Claude;
+namespace LearnBridge.Domain.Abstractions;
 
 public interface IClaudeClient
 {

@@ -1,4 +1,5 @@
 using LearnBridge.Api.AI.Claude;
+using LearnBridge.Domain.Abstractions;
 using Xunit;
 
 namespace LearnBridge.Tests;

@@ -1,12 +1,9 @@
 using System.Text.Json.Nodes;
-using LearnBridge.Api.Auditing;
 using LearnBridge.Domain.Abstractions;
-using LearnBridge.Data;
 using LearnBridge.Domain.Entities;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
-namespace LearnBridge.Api.Features.Journey;
+namespace LearnBridge.Domain.Features.Journey;
 
 public sealed class ToolExecutionResult
 {
@@ -24,16 +21,15 @@ public sealed class ToolExecutionResult
 /// </summary>
 public sealed class JourneyToolExecutor
 {
-    private readonly LearnBridgeDbContext _dbContext;
+    private readonly IApplicationDbContext _dbContext;
     private readonly ConsentGate _consentGate;
-    private readonly HttpContext _httpContext;
+    private readonly IAuditContext _auditContext;
 
-    public JourneyToolExecutor(LearnBridgeDbContext dbContext, ConsentGate consentGate, IHttpContextAccessor httpContextAccessor)
+    public JourneyToolExecutor(IApplicationDbContext dbContext, ConsentGate consentGate, IAuditContext auditContext)
     {
         _dbContext = dbContext;
         _consentGate = consentGate;
-        _httpContext = httpContextAccessor.HttpContext
-            ?? throw new InvalidOperationException("JourneyToolExecutor requires an active HTTP context.");
+        _auditContext = auditContext;
     }
 
     public async Task<ToolExecutionResult> ExecuteAsync(
@@ -84,7 +80,7 @@ public sealed class JourneyToolExecutor
         _dbContext.JourneyMemories.Add(memory);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _httpContext.MarkLearnerAccess(learnerId, "journey_memory");
+        _auditContext.MarkLearnerAccess(learnerId, "journey_memory");
 
         return new ToolExecutionResult { ResultText = "Saved.", MemoryRecorded = true };
     }
@@ -125,7 +121,7 @@ public sealed class JourneyToolExecutor
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _httpContext.MarkLearnerAccess(learnerId, "goals");
+        _auditContext.MarkLearnerAccess(learnerId, "goals");
 
         GoalUpdateDto dto = new(goal.Id, goal.Title, goal.Description, goal.Status.ToString(), wasCreated);
 

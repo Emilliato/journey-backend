@@ -1,18 +1,14 @@
-using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Authorization;
-using LearnBridge.Domain.Abstractions;
-using LearnBridge.Api.Features.Journey;
-using LearnBridge.Data;
-using LearnBridge.Domain.Entities;
+using LearnBridge.Domain.Features.Journey;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 
 namespace LearnBridge.Api.Endpoints;
 
 /// <summary>
-/// The Claude Proxy surface — see docs/ARCHITECTURE.md. The Anthropic API
-/// key never reaches the client; the Angular chat UI only ever talks to
-/// these three endpoints.
+/// The Claude Proxy surface — see docs/ARCHITECTURE.md. The Anthropic API key
+/// never reaches the client; the Angular chat UI only ever talks to these three
+/// endpoints. Thin: each resolves the caller and dispatches a command.
 /// </summary>
 public static class JourneyEndpoints
 {
@@ -28,12 +24,8 @@ public static class JourneyEndpoints
     private static async Task<IResult> StartSessionAsync(
         StartSessionRequest request,
         HttpContext httpContext,
-        LearnBridgeDbContext dbContext,
-        ConsentGate consentGate,
-        IJourneySessionStore sessionStore,
-        IAuthorizationService authorizationService,
-        JourneyConversationService conversationService,
-        CancellationToken cancellationToken)
+        ISender sender,
+        IAuthorizationService authorizationService)
     {
         Guid? parentId = httpContext.User.GetParentId();
 
@@ -42,118 +34,68 @@ public static class JourneyEndpoints
             return Results.Unauthorized();
         }
 
-        Learner? learner = await dbContext.Learners.FirstOrDefaultAsync(l => l.Id == request.LearnerId);
-
-        if (learner is null)
-        {
-            return Results.NotFound();
-        }
-
         AuthorizationResult authResult = await authorizationService.AuthorizeAsync(
-            httpContext.User, learner, "LearnerDataAccess");
+            httpContext.User, new LearnerScopedResource(request.LearnerId), "LearnerDataAccess");
 
         if (!authResult.Succeeded)
         {
             return Results.Forbid();
         }
 
-        if (!await consentGate.IsActiveAsync(learner.Id))
+        StartSessionResult result = await sender.Send(new StartSessionCommand(request.LearnerId, parentId.Value));
+
+        return result.Status switch
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
+            StartSessionStatus.LearnerNotFound => Results.NotFound(),
+            StartSessionStatus.ConsentInactive => Results.ValidationProblem(new Dictionary<string, string[]>
             {
                 ["consent"] = ["Parental consent for this learner is not active."],
-            });
-        }
-
-        ConversationSession session = new() { LearnerId = learner.Id, WasOffline = false };
-        dbContext.ConversationSessions.Add(session);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        // The learner's memory repository, replayed into the system prompt so
-        // JOURNEY knows them (and runs the introduction when there's nothing
-        // yet). Newest-first cap, then chronological for the prompt.
-        List<JourneyMemory> memories = await dbContext.JourneyMemories
-            .Where(m => m.LearnerId == learner.Id)
-            .OrderByDescending(m => m.CreatedAt)
-            .Take(JourneyPersona.MaxMemoriesInPrompt)
-            .ToListAsync(cancellationToken);
-        memories.Reverse();
-
-        string systemPrompt = JourneyPersona.BuildSystemPrompt(learner.DisplayName, memories);
-        JourneySessionState state = sessionStore.Create(session.Id, learner.Id, parentId.Value, systemPrompt);
-
-        // JOURNEY speaks first — greeting for a known learner, the
-        // getting-to-know-you introduction for a new one.
-        SendMessageResponse opening = await conversationService.StartConversationAsync(
-            state, session.Id, cancellationToken);
-
-        httpContext.MarkLearnerAccess(learner.Id, "conversation_sessions");
-        httpContext.MarkLearnerAccess(learner.Id, "journey_memory");
-
-        return Results.Created(
-            $"/api/journey/sessions/{session.Id}",
-            new StartSessionResponse(session.Id, session.StartedAt, opening.Reply));
+            }),
+            _ => Results.Created($"/api/journey/sessions/{result.Response!.SessionId}", result.Response),
+        };
     }
 
     private static async Task<IResult> SendMessageAsync(
         Guid sessionId,
         SendMessageRequest request,
         HttpContext httpContext,
-        IJourneySessionStore sessionStore,
-        JourneyConversationService conversationService,
-        CancellationToken cancellationToken)
+        ISender sender)
     {
         Guid? parentId = httpContext.User.GetParentId();
-        JourneySessionState? session = sessionStore.Get(sessionId);
 
-        if (session is null || parentId is null || session.ParentId != parentId.Value)
+        if (parentId is null)
         {
             return Results.NotFound();
         }
 
-        if (string.IsNullOrWhiteSpace(request.Message))
+        SendMessageOutcome outcome = await sender.Send(
+            new SendMessageCommand(sessionId, parentId.Value, request.Message));
+
+        return outcome.Status switch
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
+            SendMessageStatus.SessionNotFound => Results.NotFound(),
+            SendMessageStatus.MessageRequired => Results.ValidationProblem(new Dictionary<string, string[]>
             {
                 ["message"] = ["Message is required."],
-            });
-        }
-
-        SendMessageResponse response = await conversationService.SendMessageAsync(
-            session, sessionId, request.Message, cancellationToken);
-
-        httpContext.MarkLearnerAccess(session.LearnerId, "conversation_sessions");
-
-        return Results.Ok(response);
+            }),
+            _ => Results.Ok(outcome.Response),
+        };
     }
 
     private static async Task<IResult> CompleteSessionAsync(
         Guid sessionId,
         HttpContext httpContext,
-        LearnBridgeDbContext dbContext,
-        IJourneySessionStore sessionStore)
+        ISender sender)
     {
         Guid? parentId = httpContext.User.GetParentId();
-        JourneySessionState? session = sessionStore.Get(sessionId);
 
-        if (session is null || parentId is null || session.ParentId != parentId.Value)
+        if (parentId is null)
         {
             return Results.NotFound();
         }
 
-        ConversationSession? dbSession = await dbContext.ConversationSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
+        bool completed = await sender.Send(new CompleteSessionCommand(sessionId, parentId.Value));
 
-        if (dbSession is not null)
-        {
-            dbSession.EndedAt = DateTime.UtcNow;
-            dbSession.UpdatedAt = DateTime.UtcNow;
-            await dbContext.SaveChangesAsync();
-        }
-
-        sessionStore.Complete(sessionId);
-
-        httpContext.MarkLearnerAccess(session.LearnerId, "conversation_sessions");
-
-        return Results.NoContent();
+        return completed ? Results.NoContent() : Results.NotFound();
     }
 }

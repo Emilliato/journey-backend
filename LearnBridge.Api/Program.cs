@@ -1,11 +1,11 @@
 using System.Text;
-using LearnBridge.Api.AI.Claude;
+using LearnBridge.Domain.Abstractions;
 using LearnBridge.Api.Auditing;
 using LearnBridge.Api.Auth;
+using LearnBridge.Api.AI.Claude;
 using LearnBridge.Api.Authorization;
-using LearnBridge.Domain.Abstractions;
 using LearnBridge.Api.Endpoints;
-using LearnBridge.Api.Features.Journey;
+using LearnBridge.Domain.Features.Journey;
 using LearnBridge.Api.Features.Sync;
 using LearnBridge.Data;
 using LearnBridge.Domain.Entities;

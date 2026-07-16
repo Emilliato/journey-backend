@@ -1,6 +1,6 @@
 using LearnBridge.Domain.Entities;
 
-namespace LearnBridge.Api.Features;
+namespace LearnBridge.Domain.Features;
 
 /// <summary>
 /// Shared string-to-enum parsing for the two closed sets clients submit

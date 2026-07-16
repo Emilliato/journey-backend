@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 
-namespace LearnBridge.Api.AI.Claude;
+namespace LearnBridge.Domain.Abstractions;
 
 public static class ClaudeRoles
 {

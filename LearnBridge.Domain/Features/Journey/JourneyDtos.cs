@@ -1,4 +1,4 @@
-namespace LearnBridge.Api.Features.Journey;
+namespace LearnBridge.Domain.Features.Journey;
 
 public sealed record StartSessionRequest(Guid LearnerId);
 

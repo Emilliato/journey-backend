@@ -1,5 +1,6 @@
+using LearnBridge.Domain.Abstractions;
 using System.Text.Json.Nodes;
-using LearnBridge.Api.Features.Journey;
+using LearnBridge.Domain.Features.Journey;
 
 namespace LearnBridge.Api.AI.Claude;
 

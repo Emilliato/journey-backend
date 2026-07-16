@@ -1,8 +1,8 @@
 using System.Text.Json.Nodes;
-using LearnBridge.Api.AI.Claude;
+using LearnBridge.Domain.Abstractions;
 using LearnBridge.Domain.Entities;
 
-namespace LearnBridge.Api.Features.Journey;
+namespace LearnBridge.Domain.Features.Journey;
 
 /// <summary>
 /// The two tools JOURNEY can call during a conversation. The category enum

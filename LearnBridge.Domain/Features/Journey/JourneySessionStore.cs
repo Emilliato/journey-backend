@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
-using LearnBridge.Api.AI.Claude;
+using LearnBridge.Domain.Abstractions;
 
-namespace LearnBridge.Api.Features.Journey;
+namespace LearnBridge.Domain.Features.Journey;
 
 public sealed class JourneySessionState
 {
