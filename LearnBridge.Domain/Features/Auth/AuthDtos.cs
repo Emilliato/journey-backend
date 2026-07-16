@@ -1,4 +1,4 @@
-namespace LearnBridge.Api.Features.Auth;
+namespace LearnBridge.Domain.Features.Auth;
 
 public sealed record RegisterRequest(string Email, string Password, string? DisplayName);
 

@@ -1,4 +1,4 @@
-namespace LearnBridge.Api.Features.Learners;
+namespace LearnBridge.Domain.Features.Learners;
 
 /// <summary>
 /// ConsentGranted must be explicitly true — this is the parent's affirmative

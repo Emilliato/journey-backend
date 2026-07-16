@@ -2,8 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using LearnBridge.Api.Authorization;
-using LearnBridge.Domain.Entities;
-using LearnBridge.Data.Entities;
+using LearnBridge.Domain.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -26,14 +25,14 @@ public sealed class TokenService : ITokenService
         _options = options.Value;
     }
 
-    public (string Token, DateTime ExpiresAt) CreateToken(ApplicationUser user, Guid? learnerId = null)
+    public (string Token, DateTime ExpiresAt) CreateToken(Guid userId, string? email, Guid? learnerId = null)
     {
         DateTime expiresAt = DateTime.UtcNow.AddDays(_options.ExpiryDays);
 
         List<Claim> claims =
         [
-            new Claim(LearnBridgeClaimTypes.ParentId, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+            new Claim(LearnBridgeClaimTypes.ParentId, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, email ?? string.Empty),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(LearnBridgeClaimTypes.Role, learnerId is null ? LearnBridgeRoles.Parent : LearnBridgeRoles.Learner),
         ];

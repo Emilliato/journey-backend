@@ -83,6 +83,7 @@ builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, LearnerOwnDataDirectHandler>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IIdentityService, IdentityService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<ClaudeOptions>(builder.Configuration.GetSection("Claude"));
