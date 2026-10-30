@@ -1,71 +1,127 @@
-name: Deploy .NET 10 App to IIS
+name: Test and deploy to IIS (Windows Server)
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer push waits rather than cancelling a deploy half way.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
-  build-and-deploy:
-    runs-on: windows-latest
-
+  test:
+    name: Build and test
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET 10
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
-        include-prerelease: true
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
 
-    - name: Restore dependencies
-      run: dotnet restore ./LearnBridge.slnx
+      - run: dotnet restore ./LearnBridge.slnx
+      - run: dotnet build ./LearnBridge.slnx --configuration Release --no-restore
+      - run: dotnet test ./LearnBridge.slnx --configuration Release --no-build
 
-    - name: Build
-      run: dotnet build ./LearnBridge.slnx --configuration Release --no-restore
+  deploy:
+    name: Publish and deploy
+    needs: test
+    # Pull requests only run the tests above. Deploys come from main or a manual run on main.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: windows-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Publish (Self-contained)
-      run: dotnet publish ./LearnBridge.Api/LearnBridge.Api.csproj -c Release -r win-x64 --self-contained true -o ./publish
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
 
-    # appsettings.json ships with empty secrets (see its _comment_secrets note).
-    # Production values come from GitHub repository secrets and are written into
-    # the publish folder here, so they survive the msdeploy sync (which deletes
-    # any server-side file not present in the source). ASPNETCORE_ENVIRONMENT
-    # defaults to Production on the server, so this file is loaded and its
-    # non-empty keys override appsettings.json.
-    - name: Write production settings
-      shell: powershell
-      env:
-        PROD_CONNECTION_STRING: ${{ secrets.PROD_CONNECTION_STRING }}
-        PROD_JWT_SIGNING_KEY: ${{ secrets.PROD_JWT_SIGNING_KEY }}
-        PROD_CLAUDE_API_KEY: ${{ secrets.PROD_CLAUDE_API_KEY }}
-      run: |
-        $settings = [ordered]@{
-          ConnectionStrings = @{ DefaultConnection = $env:PROD_CONNECTION_STRING }
-          Jwt = @{ SigningKey = $env:PROD_JWT_SIGNING_KEY }
-          Claude = @{
-            ApiKey = $env:PROD_CLAUDE_API_KEY
-            Model = "claude-opus-4-8"
+      - name: Publish (self-contained, win-x64)
+        run: dotnet publish ./LearnBridge.Api/LearnBridge.Api.csproj -c Release -r win-x64 --self-contained true -o ./publish
+
+      # appsettings.json ships with empty secrets. Production values come from GitHub secrets and are
+      # written into the publish folder, so they survive the msdeploy sync (which deletes any server
+      # file that is not in the source). ASPNETCORE_ENVIRONMENT defaults to Production on the server,
+      # so this file is loaded and its keys override appsettings.json.
+      - name: Write production settings
+        shell: pwsh
+        env:
+          PROD_CONNECTION_STRING: ${{ secrets.PROD_CONNECTION_STRING }}
+          PROD_JWT_SIGNING_KEY: ${{ secrets.PROD_JWT_SIGNING_KEY }}
+          PROD_CLAUDE_API_KEY: ${{ secrets.PROD_CLAUDE_API_KEY }}
+        run: |
+          foreach ($name in 'PROD_CONNECTION_STRING', 'PROD_JWT_SIGNING_KEY', 'PROD_CLAUDE_API_KEY') {
+            if ([string]::IsNullOrWhiteSpace((Get-Item "env:$name").Value)) {
+              throw "The GitHub secret $name is not set. Add it under Settings > Secrets and variables > Actions."
+            }
           }
-        } | ConvertTo-Json -Depth 3
-        Set-Content -Path "$env:GITHUB_WORKSPACE\publish\appsettings.Production.json" -Value $settings -Encoding UTF8
+          if ($env:PROD_JWT_SIGNING_KEY.Length -lt 32) {
+            throw 'PROD_JWT_SIGNING_KEY must be at least 32 characters.'
+          }
+          $settings = [ordered]@{
+            ConnectionStrings = @{ DefaultConnection = $env:PROD_CONNECTION_STRING }
+            Jwt = @{ SigningKey = $env:PROD_JWT_SIGNING_KEY }
+            Claude = @{ ApiKey = $env:PROD_CLAUDE_API_KEY; Model = 'claude-opus-4-8' }
+          } | ConvertTo-Json -Depth 3
+          Set-Content -Path "$env:GITHUB_WORKSPACE\publish\appsettings.Production.json" -Value $settings -Encoding UTF8
 
-    - name: Debug publish folder
-      shell: powershell
-      run: dir $env:GITHUB_WORKSPACE\publish
+      - name: Check the publish folder
+        shell: pwsh
+        run: |
+          foreach ($f in 'LearnBridge.Api.dll', 'web.config', 'appsettings.json', 'appsettings.Production.json') {
+            if (-not (Test-Path "publish/$f")) { throw "Missing $f in the publish folder." }
+          }
 
-    - name: Deploy to IIS using Web Deploy
-      shell: powershell
-      run: |
-        $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+      # Web Deploy sends a file at a time to the server's Management Service (port 8172).
+      # -allowUntrusted accepts the server's self-signed management certificate. Remove it once the
+      # server has a trusted certificate for the host name in DEPLOY_SERVER.
+      # The logs folder is skipped so the sync does not wipe the app's stdout logs.
+      - name: Deploy to IIS using Web Deploy
+        shell: pwsh
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+          DEPLOY_SERVER: ${{ vars.DEPLOY_SERVER || '173.225.111.165:8172' }}
+          IIS_SITE: ${{ vars.IIS_SITE || 'LearnBridge' }}
+        run: |
+          $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
+          & $msdeploy `
+            -verb:sync `
+            "-source:contentPath=$env:GITHUB_WORKSPACE\publish" `
+            "-dest:contentPath=$env:IIS_SITE,computerName=https://$env:DEPLOY_SERVER/msdeploy.axd,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASSWORD,authType=Basic" `
+            -enableRule:AppOffline `
+            '-skip:objectName=dirPath,absolutePath=.*\\logs$' `
+            -allowUntrusted
+          if ($LASTEXITCODE -ne 0) { throw "msdeploy failed with exit code $LASTEXITCODE" }
 
-        $username = "${{ secrets.DEPLOY_USER }}"
-        $password = "${{ secrets.DEPLOY_PASSWORD }}"
-
-        & $msdeploy `
-          -verb:sync `
-          -source:contentPath=$env:GITHUB_WORKSPACE\publish `
-          -dest:contentPath=LearnBridge,computerName=https://173.225.111.165:8172/msdeploy.axd,userName="$username",password="$password",authType=Basic `
-          -enableRule:AppOffline `
-          -allowUntrusted
+      # The first request after a deploy starts the app, which also applies any new migrations, so
+      # this can take a while. Set HEALTH_URL (a repository variable) to turn the check on.
+      - name: Check the API is healthy
+        shell: pwsh
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:HEALTH_URL)) {
+            Write-Host 'HEALTH_URL is not set, skipping the health check.'
+            exit 0
+          }
+          for ($i = 1; $i -le 12; $i++) {
+            try {
+              $r = Invoke-RestMethod -Uri $env:HEALTH_URL -TimeoutSec 20
+              if ($r.status -eq 'healthy') { Write-Host "Healthy after $i attempt(s)."; exit 0 }
+            } catch { Write-Host "Attempt ${i}: $($_.Exception.Message)" }
+            Start-Sleep -Seconds 10
+          }
+          throw "The API did not become healthy at $env:HEALTH_URL. Check the logs on the server."
